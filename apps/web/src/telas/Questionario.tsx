@@ -40,6 +40,7 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
   const [falha, setFalha] = useState("");
   const [concluido, setConcluido] = useState(false);
   const [jaRespondeu, setJaRespondeu] = useState(false);
+  const [recibo, setRecibo] = useState<"checando" | "pode" | "respondeu">("checando");
   const topo = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,6 +56,12 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
         }
       })
       .catch(() => vivo && setErroCarga("Não foi possível abrir o questionário. Verifique a conexão e recarregue a página."));
+    // O aparelho pergunta se já respondeu antes de a pessoa preencher tudo: com
+    // a página recarregada ou o cookie limpo, só o envio no fim não bastava.
+    api
+      .post<{ respondido?: boolean }>(`/api/public/surveys/${encodeURIComponent(publicId)}/recibo`, { sessionId: idDaSessao() })
+      .then((r) => vivo && setRecibo(r?.respondido ? "respondeu" : "pode"))
+      .catch(() => vivo && setRecibo("pode"));
     return () => {
       vivo = false;
     };
@@ -139,27 +146,15 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
         window.scrollTo({ top: 0 });
         return;
       }
-      setFalha(e instanceof ApiError ? e.message : "Não foi possível enviar. Verifique a conexão e tente de novo.");
+      if (e instanceof ApiError) {
+        setFalha(e.message);
+        return;
+      }
+      setFalha("Não foi possível enviar. Verifique a conexão e tente de novo.");
     } finally {
       setEnviando(false);
     }
   }
-
-  if (jaRespondeu && dados && dados !== "vazio")
-    return (
-      <Tela
-        mensagem="Este aparelho já respondeu"
-        icone={
-          <span className="icone-circulo" aria-hidden="true">
-            <IconeCheck size={24} />
-          </span>
-        }
-      >
-        <p className="legenda" style={{ marginTop: 8, maxWidth: "58ch" }} role="alert">
-          {falha}
-        </p>
-      </Tela>
-    );
 
   if (erroCarga)
     return (
@@ -170,7 +165,33 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
       </Tela>
     );
 
-  if (dados === null)
+  if (dados === "vazio")
+    return (
+      <Tela mensagem="Este link não está disponível">
+        <p className="legenda" style={{ marginTop: 8 }}>
+          O endereço pode estar incompleto ou a coleta foi removida. Peça novamente o link ao responsável pelo NUPE.
+        </p>
+      </Tela>
+    );
+
+  if ((jaRespondeu || recibo === "respondeu") && survey)
+    return (
+      <Tela
+        mensagem="Este aparelho já respondeu"
+        icone={
+          <span className="icone-circulo" aria-hidden="true">
+            <IconeCheck size={24} />
+          </span>
+        }
+      >
+        <p className="legenda" style={{ marginTop: 8, maxWidth: "58ch" }} role="alert">
+          {falha ||
+            "A resposta deste aparelho já está registrada. Se foi outra pessoa no mesmo aparelho, peça o link para ela responder no celular dela."}
+        </p>
+      </Tela>
+    );
+
+  if (dados === null || recibo === "checando")
     return (
       <div className="q-tela">
         <BarraTopo aberta={false} aoAlternarMenu={() => undefined} aoFechar={() => undefined} />
@@ -180,15 +201,6 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
           </p>
         </div>
       </div>
-    );
-
-  if (dados === "vazio")
-    return (
-      <Tela mensagem="Este link não está disponível">
-        <p className="legenda" style={{ marginTop: 8 }}>
-          O endereço pode estar incompleto ou a coleta foi removida. Peça novamente o link ao responsável pelo NUPE.
-        </p>
-      </Tela>
     );
 
   if (concluido)

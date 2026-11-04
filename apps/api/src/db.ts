@@ -71,6 +71,18 @@ export interface DailyVisit {
   count: number;
 }
 
+/** Uma cópia guardada de uma linha (ou de um campo da ficha 1) antes de mudar. */
+export interface VersaoFicha {
+  /** Número da versão em que este conteúdo foi gravado; 0 = antes do histórico. */
+  versao: number;
+  at: string;
+  /** Conteúdo anterior. Na ficha 1 é o texto do campo; nas outras, a linha. */
+  item: unknown;
+}
+
+/** Cópias recentes das fichas, por ficha e por linha, para voltar atrás. */
+export type FichaHistory = Record<string, VersaoFicha[]>;
+
 export interface DB {
   schemaVersion: number;
   admin: AdminUser | null;
@@ -92,8 +104,13 @@ export interface DB {
   visits: DailyVisit[];
   /** Rótulo do conjunto fictício de demonstração ativo, ou null. */
   demo: string | null;
-  /** Última versão aceita por ficha gravada em bloco (evita gravação velha sobrescrever nova). */
+  /**
+   * Última versão aceita por ficha gravada em bloco (evita gravação velha sobrescrever nova).
+   * Chave: `<ficha>` ou `<ficha>:linha:<id>` nas fichas que têm linhas.
+   */
   recordVersions: Record<string, number>;
+  /** Cópias recentes de cada ficha, para voltar atrás depois de um erro. */
+  history: FichaHistory;
   log: Array<{ at: string; action: string; detail?: string }>;
 }
 
@@ -132,6 +149,7 @@ export function emptyDb(): DB {
     visits: [],
     demo: null,
     recordVersions: {},
+    history: {},
     log: [],
   };
 }
@@ -279,5 +297,6 @@ function migrate(partial: Partial<DB>): DB {
     visits: partial.visits ?? [],
     demo: partial.demo ?? null,
     recordVersions: partial.recordVersions ?? {},
+    history: partial.history ?? {},
   };
 }

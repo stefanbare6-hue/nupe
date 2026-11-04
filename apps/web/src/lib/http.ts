@@ -1,5 +1,5 @@
 /** Cliente HTTP da API. Toda mutação envia o cabeçalho exigido pelo servidor (CSRF). */
-import { avancarVersao, marcarEnviada, proximaVersao, sincronizarVersao } from "./versao";
+import { avancarVersao, chaveCampo, chaveLinha, marcarEnviada, proximaVersao, sincronizarVersao } from "./versao";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -40,9 +40,50 @@ function eFichaCompleta(path: string): string | null {
   return m && FICHAS_COMPLETAS.has(m[1]!) ? m[1]! : null;
 }
 
+/** Chaves de versão de todas as linhas e campos que o lote carrega. */
+function chavesDoLote(kind: string, body: unknown): string[] {
+  if (!body || typeof body !== "object") return [];
+  const b = body as Record<string, unknown>;
+  const lista = (campo: string) => (Array.isArray(b[campo]) ? (b[campo] as Array<{ id?: unknown }>) : []);
+  const itens = (x: unknown) => (Array.isArray(x) ? (x as Array<{ id?: unknown }>) : []);
+  const chaves: string[] = [];
+  const certa = (id: unknown) => {
+    if (typeof id === "string" && id) chaves.push(chaveLinha(kind, id));
+  };
+  if (kind === "flows") lista("flows").forEach((x) => certa(x.id));
+  if (kind === "systems") lista("systems").forEach((x) => certa(x.id));
+  if (kind === "procedures") lista("procedures").forEach((x) => certa(x.id));
+  if (kind === "diary" || kind === "glossary") lista("rows").forEach((x) => certa(x.id));
+  if (kind === "institution") {
+    lista("numbers").forEach((x) => certa(x.id));
+    for (const campo of Object.keys((b.fields as Record<string, unknown> | undefined) ?? {})) chaves.push(chaveCampo("institution", campo));
+  }
+  if (kind === "improvement") {
+    chaves.push(chaveCampo("improvement", "idea"));
+    for (const campo of Object.keys((b.fiveW2H as Record<string, unknown> | undefined) ?? {})) chaves.push(chaveCampo("improvement", `fiveW2H.${campo}`));
+    for (const campo of Object.keys((b.pdca as Record<string, unknown> | undefined) ?? {})) chaves.push(chaveCampo("improvement", `pdca.${campo}`));
+  }
+  if (kind === "matrices") {
+    const m = b as { porter?: Record<string, unknown>; swot?: Record<string, unknown>; gut?: unknown };
+    for (const grupo of [m.porter, m.swot]) {
+      for (const l of Object.values(grupo ?? {})) itens(l).forEach((x) => certa(x.id));
+    }
+    itens(m.gut).forEach((x) => certa(x.id));
+  }
+  return chaves;
+}
+
+function versaoDoLote(kind: string, body: unknown): number {
+  let maior = proximaVersao(kind);
+  for (const chave of chavesDoLote(kind, body)) maior = Math.max(maior, proximaVersao(chave));
+  return maior;
+}
+
 async function request<T>(method: string, path: string, body?: unknown, tentativa = 0): Promise<T> {
   const ficha = method === "PUT" ? eFichaCompleta(path) : null;
-  const versao = ficha ? proximaVersao(ficha) : null;
+  // O número do lote é o maior entre as fichas que ele carrega: assim desfazer
+  // um erro numa linha não fica abaixo da versão que o servidor guardou nela.
+  const versao = ficha ? versaoDoLote(ficha, body) : null;
   const corpo = ficha && body && typeof body === "object" ? { ...(body as object), versao } : body;
   let res: Response;
   try {
@@ -57,8 +98,21 @@ async function request<T>(method: string, path: string, body?: unknown, tentativ
   } catch {
     data = null;
   }
-  const resposta = data as { error?: string; errors?: string[]; versao?: unknown; ignorado?: boolean } | null;
+  const resposta = data as {
+    error?: string;
+    errors?: string[];
+    versao?: unknown;
+    ignorado?: boolean;
+    versoes?: Record<string, unknown>;
+    copias?: Record<string, unknown>;
+  } | null;
   if (ficha && resposta && typeof resposta === "object") {
+    // O servidor devolve a versão de cada linha que o envio tocou.
+    if (resposta.versoes && typeof resposta.versoes === "object") {
+      for (const [chave, valor] of Object.entries(resposta.versoes)) {
+        if (chave !== ficha) sincronizarVersao(chave, Number(valor));
+      }
+    }
     const v = Number(resposta.versao);
     if (Number.isFinite(v)) {
       // Confirmação sem `ignorado` é a versão gravada. Com 409 é a que está no
@@ -67,6 +121,7 @@ async function request<T>(method: string, path: string, body?: unknown, tentativ
       sincronizarVersao(ficha, v);
     }
   }
+  if (res.status === 409) throw new ApiError(409, resposta?.error ?? "Não foi possível concluir a operação.", resposta?.errors ?? []);
   if (!res.ok) {
     // O navegador recomeçou o contador (outra aba salvou antes). Se este lote é
     // só a conferência do que já está gravado, nada a fazer: o servidor ficou
@@ -87,9 +142,20 @@ export const api = {
     // A leitura das fichas traz a última versão aceita: o contador local parte dela.
     const versoes = (dados as { recordVersions?: Record<string, unknown> } | null)?.recordVersions;
     if (versoes && typeof versoes === "object") {
-      for (const [kind, valor] of Object.entries(versoes)) sincronizarVersao(kind, Number(valor));
-    }
+      for (const [kind, valor] of Object.entries(versoes)) sincronizarVersao(kind, Number(valor));    }
     return dados;
+  },
+  /** Desfaz uma linha: o servidor devolve o conteúdo anterior guardado. */
+  restaurar: async (chave: string) => {
+    const resposta = await request<{ ok: boolean; kind?: string; versao?: unknown; versoes?: Record<string, unknown> }>(
+      "POST",
+      `/api/history/${encodeURIComponent(chave)}/restore`,
+    );
+    // A volta atrás sobe a versão da ficha e da linha: a tela aberta aqui já
+    // passa a numerar acima dela, sem recarregar tudo.
+    if (typeof resposta?.kind === "string") sincronizarVersao(resposta.kind, Number(resposta.versao));
+    for (const [c, v] of Object.entries(resposta?.versoes ?? {})) sincronizarVersao(c, Number(v));
+    return resposta;
   },
   post: <T>(path: string, body: unknown = {}) => request<T>("POST", path, body),
   put: <T>(path: string, body: unknown) => request<T>("PUT", path, body),

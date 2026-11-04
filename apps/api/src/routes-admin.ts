@@ -19,13 +19,13 @@ import {
   type ReportInput,
 } from "@nupe/core";
 import { randomBytes } from "node:crypto";
-import type { Store } from "./db";
+import type { DB, Store } from "./db";
 import { createSession, destroySession, hashPassword, isAuthenticated, rateLimiter, verifyPassword } from "./auth";
 import { issueAntibotToken } from "./routes-public";
 import { seedDemo } from "./seed";
+import { anterior, chaveCampo, chaveLinha, conteudoDe, itensDe, registrarMudancas, restaurar } from "./historico";
 
-const secureCookie = process.env.NODE_ENV === "production" || process.env.NUPE_SECURE_COOKIE === "1";
-const isHttps = (req: { protocol?: string; headers: Record<string, unknown> }) => {
+const secureCookie = process.env.NODE_ENV === "production" || process.env.NUPE_SECURE_COOKIE === "1";const isHttps = (req: { protocol?: string; headers: Record<string, unknown> }) => {
   // Atrás de proxy (Render, Railway, Fly), a conexão local é HTTP e o esquema
   // real chega em X-Forwarded-Proto. Sem isto o cookie de sessão sairia sem
   // `Secure` e a sessão poderia cair a cada clique em servidores que exigem HTTPS.
@@ -275,15 +275,40 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
       }
       if (versao <= ultima) return reply.code(200).send({ ok: true, savedAt: stamp, versao: ultima, ignorado: true });
     }
-    const responder = () => reply.send({ ok: true, savedAt: stamp, versao: Number.isFinite(versao) ? versao : undefined });
+    // Chaves que este envio toca, na hora de responder e depois de gravar.
+    const chaves = fichasCompletas.has(kind) ? chavesDe(kind, body) : [];
+    /** Linhas e campos que têm cópia anterior guardada agora (o "Desfazer" da tela). */
+    const copias: Record<string, boolean> = {};
+    const responder = () => {
+      // O servidor devolve a versão de cada linha que o envio tocou e se ela
+      // tem cópia anterior guardada: é o que o botão "Desfazer" da tela lê.
+      const versoes: Record<string, number> = {};
+      for (const c of chaves) {
+        const v = store.data.recordVersions[c];
+        if (Number.isFinite(v)) versoes[c] = v;
+      }
+      return reply.send({
+        ok: true,
+        savedAt: stamp,
+        versao: Number.isFinite(versao) ? versao : undefined,
+        versoes: Object.keys(versoes).length ? versoes : undefined,
+        copias: Object.keys(copias).length ? copias : undefined,
+      });
+    };
+    const antes = conteudoDe(kind, store.data);
+    // Recusa: só a resposta de erro leva o 400 (o código preso à resposta
+    // marcaria de erro a gravação que deu certo).
+    const x = { send: (corpo: { error: string }) => reply.code(400).send(corpo) };
     switch (kind) {
-      case "institution":
-        store.data.institution = {
-          fields: asStringMap(body.fields),
-          numbers: Array.isArray(body.numbers) ? (body.numbers as any[]).map(normalizeNumberRow) : [],
-          updatedAt: stamp,
-        };
+      case "institution": {
+        // A primeira edição pode chegar só com os números (ou só com os campos):
+        // o que não veio fica como estava, sem apagar o que já estava gravado.
+        const atual = store.data.institution;
+        const campos = body.fields !== undefined ? asStringMap(body.fields) : atual.fields;
+        const numeros = Array.isArray(body.numbers) ? (body.numbers as any[]).map(normalizeNumberRow) : atual.numbers;
+        store.data.institution = { fields: campos, numbers: numeros, updatedAt: stamp };
         break;
+      }
       case "settings":
         store.data.settings = { ...store.data.settings, ...(body as any), updatedAt: stamp };
         break;
@@ -298,11 +323,15 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
         break;
       case "matrices": {
         const m = body as unknown as Matrices;
-        store.data.matrices = normalizeMatrices(m);
+        // As frases prontas do relatório não vêm no envio da tela: sem elas
+        // gravadas aqui, cada salvamento apagaria o que já estava escrito.
+        const notas = isPlain(body.notes) ? asStringMap(body.notes) : store.data.matrices.notes ?? {};
+        store.data.matrices = { ...normalizeMatrices(m), notes: notas };
         break;
       }
-      case "flows":
-        store.data.flows = (Array.isArray(body.flows) ? body.flows : []).map((f: any) => ({
+      case "flows": {
+        if (!Array.isArray(body.flows)) return x.send({ error: "Fluxos inválidos." });
+        store.data.flows = body.flows.map((f: any) => ({
           id: String(f.id ?? crypto.randomUUID()),
           name: String(f.name ?? "").slice(0, 160),
           process: String(f.process ?? "").slice(0, 300),
@@ -316,15 +345,18 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
           })),
         }));
         break;
+      }
       case "systems":
-        store.data.systems = (Array.isArray(body.systems) ? body.systems : []).map((s: any) => ({
+        if (!Array.isArray(body.systems)) return x.send({ error: "Sistemas inválidos." });
+        store.data.systems = body.systems.map((s: any) => ({
           id: String(s.id ?? crypto.randomUUID()),
           name: String(s.name ?? "").slice(0, 160),
           fields: asStringMap(s.fields),
         }));
         break;
       case "procedures":
-        store.data.procedures = (Array.isArray(body.procedures) ? body.procedures : []).map((p: any) => ({
+        if (!Array.isArray(body.procedures)) return x.send({ error: "Procedimentos inválidos." });
+        store.data.procedures = body.procedures.map((p: any) => ({
           id: String(p.id),
           procedure: String(p.procedure ?? ""),
           base: String(p.base ?? ""),
@@ -333,7 +365,8 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
         }));
         break;
       case "diary":
-        store.data.diary = (Array.isArray(body.rows) ? body.rows : []).map((r: any) => ({
+        if (!Array.isArray(body.rows)) return x.send({ error: "Registros inválidos." });
+        store.data.diary = body.rows.map((r: any) => ({
           id: String(r.id ?? crypto.randomUUID()),
           date: String(r.date ?? ""),
           observation: String(r.observation ?? ""),
@@ -342,7 +375,8 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
         }));
         break;
       case "glossary":
-        store.data.glossary = (Array.isArray(body.rows) ? body.rows : []).map((r: any) => ({
+        if (!Array.isArray(body.rows)) return x.send({ error: "Verbetes inválidos." });
+        store.data.glossary = body.rows.map((r: any) => ({
           id: String(r.id ?? crypto.randomUUID()),
           acronym: String(r.acronym ?? ""),
           meaning: String(r.meaning ?? ""),
@@ -352,12 +386,47 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
       default:
         return reply.code(404).send({ error: "Ficha desconhecida." });
     }
+    // Guarda cópia do que mudou antes de dar o conteúdo como novo. Os carimbos
+    // de hora ficam fora da comparação: só mudar o horário não conta.
+    if (fichasCompletas.has(kind)) {
+      registrarMudancas(store.data, kind, antes, conteudoDe(kind, store.data), Number.isFinite(versao) ? versao : 0, stamp);
+    }
+    // A cópia é a que ficou guardada agora — a gravação velha já saiu acima.
+    for (const c of chaves) if (anterior(store.data, c)) copias[c] = true;
     store.note(`ficha salva`, kind);
     // A versão só avança depois de tudo computado; ficha desconhecida não gasta número.
     if (fichasCompletas.has(kind) && Number.isFinite(versao)) store.data.recordVersions[kind] = versao;
     await store.save();
     return responder();
   });
+
+  /** Última cópia guardada de cada linha e de cada campo da ficha 1. */
+  app.get("/api/history", { preHandler: guard }, async () => {
+    const itens: Record<string, { at: string; versao: number }> = {};
+    for (const [chave, lista] of Object.entries(store.data.history)) {
+      const ultima = lista[lista.length - 1];
+      if (ultima) itens[chave] = { at: ultima.at, versao: ultima.versao };
+    }
+    return { itens };
+  });
+
+  /**
+   * Volta uma linha (ou um campo da ficha 1) ao conteúdo da cópia guardada.
+   * A linha removida volta para onde estava; se a posição já não existir, vai
+   * para o fim. A ficha ganha versão nova, então uma tela aberta em outro
+   * lugar recarrega em vez de sobrescrever a volta atrás.
+   */
+  app.post<{ Params: { chave: string } }>("/api/history/:chave/restore", { preHandler: guard }, async (req, reply) => {
+    const chave = decodeURIComponent(req.params.chave);
+    const copia = anterior(store.data, chave);
+    if (!copia) return reply.code(404).send({ error: "Não há cópia guardada para esta linha." });
+    const restaurada = restaurar(store.data, chave);
+    if (!restaurada) return reply.code(404).send({ error: "Esta linha não existe mais nesta ficha." });
+    store.note("conteúdo anterior restaurado", chave);
+    await store.save();
+    return { ok: true, chave, kind: restaurada };
+  });
+
 
   // ── Relatório ───────────────────────────────────────────────────
   app.get("/api/report", { preHandler: guard }, async () => {
@@ -489,6 +558,91 @@ function labelSystemField(key: string) {
   return map[key] ?? key;
 }
 
+function isPlain(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+/** Texto do envio, no formato em que o servidor guarda: inteiro vira texto. */
+function texto(v: unknown): string {
+  return typeof v === "string" ? v.slice(0, 4000) : v == null ? "" : String(v).slice(0, 4000);
+}
+
+/**
+ * O conteúdo enviado está igual ao que o servidor guarda? Compara na forma
+ * gravada (número vira texto, lista de matrizes junta as colunas), porque é
+ * isso que o botão "Desfazer" da tela está vendo.
+ */
+function naFormaGuardada(kind: string, chave: string, database: DB, body: Record<string, unknown>): boolean {
+  const campos = /^(.+?):campo:(.+)$/.exec(chave);
+  if (campos && campos[2]) {
+    const campo = campos[2];
+    const enviado =
+      kind === "institution" ? (isPlain(body.fields) ? body.fields[campo] : undefined) : valorDaFicha6(body, campo);
+    const guardado = kind === "institution" ? database.institution.fields?.[campo] ?? "" : valorDaFicha6(database.improvement, campo);
+    return texto(enviado) === String(guardado ?? "");
+  }
+  const m = /^(.+?):linha:(.+)$/.exec(chave);
+  if (!m || !m[2]) return false;
+  const id = m[2];
+  const lista = (nome: string) => (Array.isArray(body[nome]) ? (body[nome] as Array<{ id?: unknown }>) : []);
+  let itens: Array<{ id?: unknown }> = [];
+  if (kind === "flows") itens = lista("flows");
+  else if (kind === "systems") itens = lista("systems");
+  else if (kind === "procedures") itens = lista("procedures");
+  else if (kind === "diary" || kind === "glossary") itens = lista("rows");
+  else if (kind === "institution") itens = lista("numbers");
+  else if (kind === "matrices") {
+    const mm = body as unknown as Matrices;
+    for (const grupo of [mm.porter, mm.swot]) {
+      for (const l of Object.values(grupo ?? {})) if (Array.isArray(l)) itens.push(...l);
+    }
+    if (Array.isArray(mm.gut)) itens.push(...mm.gut);
+  }
+  const enviado = itens.find((x) => x.id === id);
+  const atual = itensDe(kind, conteudoDe(kind, database)).find((x) => x.id === id)?.item;
+  return !!enviado && !!atual && JSON.stringify(enviado) === JSON.stringify(atual);
+}
+
+/** Valor de um campo da ficha 6 no corpo enviado. */
+function valorDaFicha6(conteudo: unknown, campo: string): string {
+  const c = (conteudo ?? {}) as { idea?: unknown; fiveW2H?: Record<string, unknown>; pdca?: Record<string, unknown> };
+  const [grupo, chave] = campo.split(".");
+  if (!chave) return texto(c.idea);
+  const mapa = grupo === "pdca" ? c.pdca : c.fiveW2H;
+  return texto(mapa?.[chave]);
+}
+
+/** Chaves de versão das linhas e dos campos da ficha 1 que este envio carrega. */
+function chavesDe(kind: string, b: Record<string, unknown>): string[] {
+  const chaves: string[] = [];
+  const lista = (campo: string) => (Array.isArray(b[campo]) ? (b[campo] as Array<{ id?: unknown }>) : []);
+  const daLista = (lista: Array<{ id?: unknown }>) => {
+    for (const x of lista) if (typeof x.id === "string" && x.id) chaves.push(chaveLinha(kind, x.id));
+  };
+  if (kind === "flows") daLista(lista("flows"));
+  if (kind === "systems") daLista(lista("systems"));
+  if (kind === "procedures") daLista(lista("procedures"));
+  if (kind === "diary" || kind === "glossary") daLista(lista("rows"));
+  if (kind === "institution") {
+    daLista(lista("numbers"));
+    if (isPlain(b.fields)) for (const campo of Object.keys(b.fields)) chaves.push(chaveCampo("institution", campo));
+  }
+  if (kind === "improvement") {
+    // O envio da ficha 6 leva os três campos de uma vez: cada um tem cópia própria.
+    chaves.push(chaveCampo("improvement", "idea"));
+    for (const campo of Object.keys(isPlain(b.fiveW2H) ? b.fiveW2H : {})) chaves.push(chaveCampo("improvement", `fiveW2H.${campo}`));
+    for (const campo of Object.keys(isPlain(b.pdca) ? b.pdca : {})) chaves.push(chaveCampo("improvement", `pdca.${campo}`));
+  }
+  if (kind === "matrices") {
+    const m = b as unknown as Matrices;
+    for (const grupo of [m.porter, m.swot]) {
+      for (const l of Object.values(grupo ?? {})) if (Array.isArray(l)) daLista(l);
+    }
+    if (Array.isArray(m.gut)) daLista(m.gut);
+  }
+  return chaves;
+}
+
 function asStringMap(v: unknown): Record<string, string> {
   if (!v || typeof v !== "object") return {};
   const out: Record<string, string> = {};
@@ -506,7 +660,6 @@ function normalizeNumberRow(r: any) {
     source: String(r?.source ?? ""),
   };
 }
-
 function normalizeMatrices(m: Matrices): Matrices {
   const item = (x: any) => ({
     id: String(x?.id ?? crypto.randomUUID()),

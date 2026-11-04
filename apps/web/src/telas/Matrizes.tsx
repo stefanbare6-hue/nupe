@@ -6,6 +6,8 @@ import { Carregando, Falha } from "../componentes/comuns";
 import { useEffect, useRef, useState } from "react";
 import { irPara } from "../lib/rotas";
 import { marcarPendente, registrarEnvio } from "../lib/gravacao";
+import { BotaoConfirmavel } from "../componentes/Confirmar";
+import { BotaoDesfazer, RecuperarContexto, chaveLinha } from "../componentes/Historico";
 
 function novoId() {
   return Math.random().toString(36).slice(2, 10);
@@ -29,6 +31,12 @@ export function Matrizes() {
   // mesmo valor salvo e uma apagar a outra.
   const [local, setLocal] = useState<Matrices | null>(null);
   const [salvando, setSalvando] = useState(false);
+  /** Itens com cópia anterior no servidor, conforme o último envio aceito. */
+  const [copias, setCopias] = useState<Record<string, boolean>>({});
+  const [emCurso, setEmCurso] = useState("");
+  const [erroDesfazer, setErroDesfazer] = useState("");
+  /** Itens tirados das listas nesta sessão, para o Desfazer ficar ao alcance. */
+  const [removidos, setRemovidos] = useState<Array<Matrices["gut"][number] & { de: string }>>([]);
   // useRef reproduz React 19: o valor do ref já vale dentro do mesmo envio.
   const pendente = useRef<Matrices | null>(null);
 
@@ -36,7 +44,24 @@ export function Matrizes() {
     if (fase === "pronto" && !local) setLocal({ ...vazio(), ...dados.matrices });
   }, [fase, dados, local]);
 
+  const copia = (itemId: string) => Boolean(copias[chaveLinha("matrices", itemId)]);
+
+  /** Todos os itens das três matrizes, com a lista a que pertencem. */
+  const todosItens = (matriz: Matrices) => [
+    ...Object.entries(matriz.porter).flatMap(([de, lista]) => lista.map((x) => ({ ...x, de }))),
+    ...Object.entries(matriz.swot).flatMap(([de, lista]) => lista.map((x) => ({ ...x, de }))),
+    ...matriz.gut.map((x) => ({ ...x, de: "gut" })),
+  ];
+
   function gravar(m: Matrices) {
+    // Itens que saíram de qualquer lista ficam à vista para voltar atrás: são o
+    // único jeito de alcançar o botão de um item que já não está no lugar.
+    const atuais = new Set(todosItens(m).map((x) => x.id));
+    const sairam = local ? todosItens(local).filter((x) => !atuais.has(x.id)) : [];
+    if (sairam.length) {
+      const ids = new Set(sairam.map((x) => x.id));
+      setRemovidos((antes) => [...sairam, ...antes.filter((x) => !ids.has(x.id))]);
+    }
     setLocal(m);
     pendente.current = m;
     marcarPendente(true);
@@ -54,7 +79,9 @@ export function Matrizes() {
     setTexto("Salvando…");
     setErroSalvar("");
     try {
-      await api.put("/api/records/matrices", corpo);
+      const r = await api.put<{ copias?: Record<string, boolean> }>("/api/records/matrices", corpo);
+      // O botão "Desfazer" aparece onde o servidor tem o conteúdo anterior.
+      if (r?.copias && typeof r.copias === "object") setCopias((antes) => ({ ...antes, ...r.copias }));
       setTexto(
         pendente.current
           ? "Salvando…"
@@ -69,6 +96,40 @@ export function Matrizes() {
     if (pendente.current) await enviar();
     else marcarPendente(false);
   }
+
+  /**
+   * Volta um item ao conteúdo anterior guardado. Sai antes o que estiver
+   * pendente, e a tela relê as matrizes: sem isso, a próxima edição partiria da
+   * cópia velha e apagaria a volta atrás.
+   */
+  async function restaurar(chave: string) {
+    if (emCurso) return;
+    setEmCurso(chave);
+    setErroDesfazer("");
+    try {
+      await enviar();
+      await api.restaurar(chave);
+      const { matrices } = await api.get<RecordsView>("/api/records");
+      setLocal({ ...vazio(), ...matrices });
+      pendente.current = null;
+      // Item que voltou do servidor não está mais na lista de removidos.
+      setRemovidos((antes) => {
+        const voltaram = new Set(todosItens(matrices).map((x) => x.id));
+        const ficam = antes.filter((x) => !voltaram.has(x.id));
+        return ficam.length === antes.length ? antes : ficam;
+      });
+    } catch (e) {
+      setErroDesfazer(e instanceof ApiError ? e.message : "Não foi possível desfazer agora. O item continua como estava.");
+    } finally {
+      setEmCurso("");
+    }
+  }
+
+  const desfazer = (itemId: string, rotulo: string) => (
+    <BotaoDesfazer chave={chaveLinha("matrices", itemId)} temCopia={copia(itemId)} rotulo={rotulo} />
+  );
+  /** Itens removidos que pertenciam a esta lista (o botão fica no lugar deles). */
+  const removidosDe = (chaveLista: string) => removidos.filter((x) => x.de === chaveLista);
 
   // Sair da tela leva a última edição junto, sem esperar o atraso do salvamento.
   useEffect(() => {
@@ -87,9 +148,10 @@ export function Matrizes() {
 
   const m: Matrices = { ...vazio(), ...(local ?? dados.matrices) };
   const swotProblemas = validateSwot(m);
+  const recuperar = { emCurso, erro: erroDesfazer, restaurar: (chave: string) => void restaurar(chave) };
 
   return (
-    <>
+    <RecuperarContexto.Provider value={recuperar}>
       <div className="cabeca">
         <div>
           <h1 className="titulo">Matrizes</h1>
@@ -116,6 +178,8 @@ export function Matrizes() {
                 itens={m.porter[p.key]}
                 rotulo={p.label}
                 aoMudar={(itens) => gravar({ ...m, porter: { ...m.porter, [p.key]: itens } })}
+                copia={copia}
+                removidos={removidosDe(p.key)}
               />
             </div>
           ))}
@@ -150,6 +214,8 @@ export function Matrizes() {
                 itens={m.swot[s.key]}
                 rotulo={s.label}
                 aoMudar={(itens) => gravar({ ...m, swot: { ...m.swot, [s.key]: itens } })}
+                copia={copia}
+                removidos={removidosDe(s.key)}
               />
               {s.key === "forcas" ? (
                 <p className="micro">Oportunidade precisa de uma força interna que a aproveite.</p>
@@ -221,6 +287,7 @@ export function Matrizes() {
                   <tr key={item.id}>
                     <td>
                       <input
+                        key={`texto:${item.text}`}
                         className="input"
                         aria-label={`Gargalo da linha ${i + 1}`}
                         defaultValue={item.text}
@@ -231,6 +298,7 @@ export function Matrizes() {
                     </td>
                     <td>
                       <input
+                        key={`evidencia:${item.evidence ?? ""}`}
                         className="input"
                         aria-label={`Origem da linha ${i + 1}`}
                         defaultValue={item.evidence ?? ""}
@@ -246,14 +314,18 @@ export function Matrizes() {
                     <td className="n num">{pontos}</td>
                     <td className={prioridade === "Alta" ? "estado pend" : ""}>{prioridade}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn sutil perigo"
-                        aria-label={`Remover linha ${i + 1}`}
-                        onClick={() => gravar({ ...m, gut: m.gut.filter((_, j) => j !== i) })}
-                      >
-                        Remover
-                      </button>
+                      <div className="acoes-linha">
+                        <BotaoConfirmavel
+                          rotulo={`Remover linha ${i + 1}`}
+                          pergunta={`Remover o gargalo da linha ${i + 1}? Ele sai da matriz e do relatório. Dá para voltar atrás em seguida.`}
+                          acoes={["Remover gargalo", "Manter"]}
+                          variante="btn sutil perigo"
+                          aoConfirmar={() => gravar({ ...m, gut: m.gut.filter((_, j) => j !== i) })}
+                        >
+                          Remover
+                        </BotaoConfirmavel>
+                        {desfazer(item.id, `a linha ${i + 1} da matriz GUT`)}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -261,6 +333,19 @@ export function Matrizes() {
             </tbody>
           </table>
         </div>
+        {removidosDe("gut").length ? (
+          <div className="desfazer-removidos">
+            <p className="micro">Removidos agora</p>
+            <ul>
+              {removidosDe("gut").map((item) => (
+                <li key={item.id}>
+                  <span>{item.text.trim().slice(0, 40) || "gargalo sem texto"}</span>
+                  {desfazer(item.id, "o gargalo removido")}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <button
           type="button"
           className="btn"
@@ -320,7 +405,12 @@ export function Matrizes() {
       <p className={erroSalvar ? "erro-texto" : "salvo"} role="status" aria-live="polite" style={{ marginTop: 16 }}>
         {erroSalvar || texto}
       </p>
-    </>
+      {erroDesfazer ? (
+        <p className="erro-texto" role="alert" style={{ marginTop: 8 }}>
+          {erroDesfazer}
+        </p>
+      ) : null}
+    </RecuperarContexto.Provider>
   );
 }
 
@@ -328,16 +418,25 @@ function Lista({
   itens,
   rotulo,
   aoMudar,
+  copia,
+  removidos,
 }: {
   itens: Matrices["gut"];
   rotulo: string;
   aoMudar: (itens: Matrices["gut"]) => void;
+  /** O item tem cópia anterior no servidor? */
+  copia: (itemId: string) => boolean;
+  /** Itens removidos da lista nesta sessão, para o Desfazer ficar ao alcance. */
+  removidos: Array<Matrices["gut"][number] & { de: string }>;
 }) {
   return (
     <div className="lista-matriz">
       {itens.map((item, i) => (
         <div key={item.id} className="linha-matriz">
+          {/* O texto e a evidência são a chave: quando o servidor devolve outro
+              conteúdo (volta atrás), a caixa é refeita com ele. */}
           <textarea
+            key={`texto:${item.text}`}
             className="input"
             rows={2}
             aria-label={`${rotulo}, item ${i + 1}`}
@@ -348,6 +447,7 @@ function Lista({
             }}
           />
           <input
+            key={`evidencia:${item.evidence ?? ""}`}
             className="input"
             aria-label={`${rotulo}, evidência do item ${i + 1}`}
             defaultValue={item.evidence ?? ""}
@@ -365,6 +465,13 @@ function Lista({
           >
             Remover
           </button>
+          <div className="acoes-linha">
+            <BotaoDesfazer
+              chave={chaveLinha("matrices", item.id)}
+              temCopia={copia(item.id)}
+              rotulo={`${rotulo}, item ${i + 1}`}
+            />
+          </div>
         </div>
       ))}
       <button
@@ -381,6 +488,23 @@ function Lista({
       >
         Adicionar item
       </button>
+      {removidos.length ? (
+        <div className="desfazer-removidos">
+          <p className="micro">Removidos agora</p>
+          <ul>
+            {removidos.map((item, i) => (
+              <li key={item.id}>
+                <span>{item.text.trim().slice(0, 40) || `item ${i + 1}`}</span>
+                <BotaoDesfazer
+                  chave={chaveLinha("matrices", item.id)}
+                  temCopia={copia(item.id)}
+                  rotulo={`o item removido ${rotulo}`}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

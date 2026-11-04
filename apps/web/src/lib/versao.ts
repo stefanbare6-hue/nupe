@@ -27,6 +27,22 @@ export function marcarEnviada(kind: string, versao: number, reenviada: boolean) 
 }
 
 /**
+ * Chave de versão e de histórico de uma linha da ficha.
+ *
+ * A mesma regra vale no servidor (`apps/api/src/historico.ts`): cada linha tem
+ * número próprio, então desfazer um erro numa linha não é confundido com
+ * gravação velha das outras.
+ */
+export function chaveLinha(kind: string, id: string): string {
+  return `${kind}:linha:${id}`;
+}
+
+/** Chave de um campo sem lista de linhas (fichas 1 e 6). */
+export function chaveCampo(kind: string, campo: string): string {
+  return `${kind}:campo:${campo}`;
+}
+
+/**
  * O servidor recusou o número enviado (outra aba ou outra sessão gravou antes).
  * Se este lote for a conferência do mesmo conteúdo, o servidor já tem a versão
  * mais nova guardada e não há o que regravar. Fora isso, renumera e segue.

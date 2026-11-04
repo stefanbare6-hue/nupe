@@ -375,6 +375,70 @@ describe("fichas, matrizes e relatório", () => {
     expect(dados.json.matrices.gut[0]).toMatchObject({ gravity: 5, urgency: 4, tendency: 4 });
   });
 
+  it("desfaz a edição de uma linha e refaz, sem perder a lista", async () => {
+    const salvar = (linha: Record<string, string>) =>
+      chamar(lab.base, "PUT", "/api/records/diary", { rows: [{ id: "linha-1", date: "", observation: "", source: "", question: "", ...linha }] }, cookie);
+    const primeira = await salvar({ observation: "texto certo" });
+    expect(primeira.status).toBe(200);
+    expect(primeira.json.copias).toMatchObject({ "diary:linha:linha-1": true });
+    // Clique errado troca o texto: o servidor guarda o anterior.
+    const segunda = await salvar({ observation: "texto errado" });
+    expect(segunda.status).toBe(200);
+    const chave = encodeURIComponent("diary:linha:linha-1");
+    expect((await chamar(lab.base, "POST", `/api/history/${chave}/restore`, {}, cookie)).status).toBe(200);
+    let dados = await chamar(lab.base, "GET", "/api/records", undefined, cookie);
+    expect(dados.json.diary.map((r: any) => r.observation)).toEqual(["texto certo"]);
+    // Desfazer a volta atrás devolve a alteração: o botão não é de mão única.
+    expect((await chamar(lab.base, "POST", `/api/history/${chave}/restore`, {}, cookie)).status).toBe(200);
+    dados = await chamar(lab.base, "GET", "/api/records", undefined, cookie);
+    expect(dados.json.diary.map((r: any) => r.observation)).toEqual(["texto errado"]);
+  });
+
+  it("remove uma linha e devolve com o conteúdo inteiro", async () => {
+    const r = await chamar(
+      lab.base,
+      "PUT",
+      "/api/records/glossary",
+      { rows: [{ id: "v-1", acronym: "CEPE", meaning: "Conselho de Ensino", source: "site do NUPE" }] },
+      cookie,
+    );
+    expect(r.status).toBe(200);
+    expect((await chamar(lab.base, "PUT", "/api/records/glossary", { rows: [] }, cookie)).status).toBe(200);
+    const vazio = await chamar(lab.base, "GET", "/api/records", undefined, cookie);
+    expect(vazio.json.glossary).toEqual([]);
+    const chave = encodeURIComponent("glossary:linha:v-1");
+    expect((await chamar(lab.base, "POST", `/api/history/${chave}/restore`, {}, cookie)).status).toBe(200);
+    const dados = await chamar(lab.base, "GET", "/api/records", undefined, cookie);
+    expect(dados.json.glossary).toHaveLength(1);
+    expect(dados.json.glossary[0]).toMatchObject({ acronym: "CEPE", meaning: "Conselho de Ensino" });
+  });
+
+  it("desfaz campo da ficha 1 e da ficha 6", async () => {
+    const salvar = (corpo: Record<string, unknown>) => chamar(lab.base, "PUT", "/api/records/institution", corpo, cookie);
+    await salvar({ fields: { missao: "primeira missão" } });
+    await salvar({ fields: { missao: "missão errada" } });
+    const chave = encodeURIComponent("institution:campo:missao");
+    expect((await chamar(lab.base, "POST", `/api/history/${chave}/restore`, {}, cookie)).status).toBe(200);
+    let dados = await chamar(lab.base, "GET", "/api/records", undefined, cookie);
+    expect(dados.json.institution.fields.missao).toBe("primeira missão");
+
+    const f6 = (idea: string) => chamar(lab.base, "PUT", "/api/records/improvement", { idea, fiveW2H: {}, pdca: {} }, cookie);
+    await f6("ideia boa");
+    await f6("ideia errada");
+    const chave6 = encodeURIComponent("improvement:campo:idea");
+    expect((await chamar(lab.base, "POST", `/api/history/${chave6}/restore`, {}, cookie)).status).toBe(200);
+    dados = await chamar(lab.base, "GET", "/api/records", undefined, cookie);
+    expect(dados.json.improvement.idea).toBe("ideia boa");
+  });
+
+  it("não oferece desfazer para gravação velha que o servidor ignorou", async () => {
+    await chamar(lab.base, "PUT", "/api/records/diary", { rows: [{ id: "v-1", date: "", observation: "nova", source: "", question: "" }], versao: 9 }, cookie);
+    const velha = await chamar(lab.base, "PUT", "/api/records/diary", { rows: [{ id: "v-1", date: "", observation: "antiga", source: "", question: "" }], versao: 2 }, cookie);
+    expect(velha.status).toBe(200);
+    expect(velha.json.ignorado).toBe(true);
+    expect(velha.json.copias ?? {}).not.toHaveProperty("diary:linha:v-1");
+  });
+
   it("cria fluxo a partir do modelo da bolsa de monitoria", async () => {
     const r = await chamar(lab.base, "POST", "/api/records/flows", { templateId: "bolsa-monitoria" }, cookie);
     expect(r.status).toBe(200);

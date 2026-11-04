@@ -72,6 +72,7 @@ export async function registerPublicRoutes(app: FastifyInstance, store: Store, s
   const submitPorAparelho = rateLimiter(8, 10 * 60_000);
   const submitPorIp = rateLimiter(200, 10 * 60_000);
   const sessionLimit = rateLimiter(300, 10 * 60_000);
+  const reciboLimit = rateLimiter(120, 10 * 60_000);
 
   app.get("/api/public/health", async () => ({ ok: true, time: nowIso() }));
 
@@ -185,6 +186,24 @@ export async function registerPublicRoutes(app: FastifyInstance, store: Store, s
     }).length;
     return { audience, total, open: Boolean(open) };
   });
+
+  /**
+   * O aparelho pergunta se já respondeu este questionário. A resposta fica
+   * guardada no navegador: o cookie da sessão anônima pode sumir, e sem isto a
+   * pessoa preencheria tudo de novo para receber um recado no fim.
+   */
+  app.post<{ Params: { id: string }; Body: { sessionId?: string } }>(
+    "/api/public/surveys/:id/recibo",
+    async (req, reply) => {
+      if (!reciboLimit(req.ip)) return reply.code(429).send({ error: "Muitas consultas. Aguarde alguns minutos." });
+      const c = store.data.collections.find((x) => x.publicId === req.params.id);
+      if (!c) return reply.code(404).send({ error: "Questionário indisponível." });
+      const sessionId = typeof req.body?.sessionId === "string" ? req.body.sessionId : "";
+      const respondido = !!sessionId && sessionId.length >= 20 &&
+        (store.data.contest[c.id] ?? []).some((x) => x.sessionId === sessionId);
+      return { respondido };
+    },
+  );
 }
 
 export async function issueAntibotToken(store: Store, secret: string, collectionId: string, sessionId: string) {

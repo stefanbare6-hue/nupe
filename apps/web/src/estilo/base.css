@@ -431,6 +431,18 @@ table,
   outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
+/* No telefone a tabela da ficha é larga: a legenda avisa que dá para deslizar. */
+.tabela-dica {
+  display: none;
+}
+@media (max-width: 720px) {
+  .tabela-dica {
+    display: block;
+    margin: 0 0 8px;
+    font-size: var(--fs-small);
+    color: var(--muted);
+  }
+}
 table {
   width: 100%;
   border-collapse: collapse;

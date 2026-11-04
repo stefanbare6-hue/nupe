@@ -119,6 +119,63 @@
   border-top: 1px solid var(--rule);
 }
 
+/* Voltar atrás: o botão fica ao lado do campo ou da linha, discreto. */
+.acoes-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+}
+.btn.desfazer {
+  min-height: 30px;
+  height: auto;
+  padding: 2px 10px;
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.btn.desfazer:hover {
+  color: var(--text);
+  background: var(--raised);
+}
+.desfazer-removidos {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-soft);
+}
+.desfazer-removidos ul {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.desfazer-removidos li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--rule);
+  font-size: var(--fs-small);
+}
+.desfazer-removidos li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.linha-matriz .desfazer-removidos,
+.lista-matriz .desfazer-removidos {
+  margin-top: 0;
+  padding: 8px 10px;
+}
+
 .ferramentas-ficha {
   display: flex;
   flex-wrap: wrap;
@@ -202,10 +259,13 @@
 }
 .linha-matriz .btn {
   justify-self: start;
-  min-height: 44px;
+  min-height: 32px;
   height: auto;
-  padding: 0 12px;
-  font-size: var(--fs-small);
+  padding: 0 8px;
+  font-size: var(--fs-micro);
+}
+.lista-matriz .acoes-linha .btn {
+  min-height: 30px;
 }
 .swot-grade {
   display: grid;
@@ -349,17 +409,56 @@
   .tabela-ficha {
     min-width: 520px;
   }
+  /* A tabela rola na horizontal em vez de espremer o texto; a largura vem do
+     conteúdo, então "Projetos de extensão" não é cortado. */
+  .tabela-ficha .input {
+    width: 100%;
+    overflow-wrap: break-word;
+  }
+  .tabela-ficha th {
+    overflow-wrap: break-word;
+  }
+  .tabela-ficha td {
+    min-width: 140px;
+  }
+  .tabela-ficha td:last-child {
+    min-width: 96px;
+  }
   .tabela-ficha th {
     white-space: normal;
     font-size: var(--fs-micro);
     padding: 0 4px;
     min-width: 74px;
+    line-height: 1.25;
+    vertical-align: bottom;
+  }
+  /* Com largura fixa, cada coluna sem regra própria fica com espaço para ler. */
+  .tabela-ficha td:last-child {
+    min-width: 96px;
+  }
+  /* Ficha 8: a sigla é curta; o significado é o texto longo. */
+  .tabela-glossario td:nth-child(2) {
+    min-width: 210px;
+  }
+  /* Ficha 2: o indicador é o texto mais longo; a fonte vem depois. */
+  .tabela-numeros td:first-child {
+    min-width: 190px;
+  }
+  .tabela-numeros td:last-child {
+    min-width: 160px;
   }
   .tabela-ficha th:first-child {
     min-width: 24px;
   }
   .tabela-ficha th:last-child {
     min-width: 76px;
+  }
+  /* A data ocupa pouco: a largura vem da coluna, não do campo. */
+  .tabela-ficha .campo-data {
+    width: 100%;
+  }
+  .tabela-ficha .btn.desfazer {
+    min-height: 44px;
   }
   .fluxo,
   .sistema {

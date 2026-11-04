@@ -175,27 +175,10 @@ try {
   await q.waitForSelector("text=Resposta registrada", { timeout: 10000 });
   ok("resposta enviada e confirmada", true);
 
-  // Envio repetido no mesmo aparelho
+  // Ao recarregar, o aparelho que já respondeu vê o aviso e não o formulário.
   await q.reload();
-  await q.waitForSelector(".q-cartao");
-  for (let i = 0; i < total; i++) {
-    const p = q.locator("fieldset.q-cartao").nth(i);
-    const radios = p.locator("input[type=radio]");
-    if ((await radios.count()) > 0) {
-      await radios.nth(2).check();
-      continue;
-    }
-    const checks = p.locator("input[type=checkbox]");
-    if ((await checks.count()) > 0) {
-      await checks.nth(0).check();
-      continue;
-    }
-    await p.locator("textarea").fill("Segunda tentativa do mesmo aparelho.");
-  }
-  await q.getByRole("button", { name: /Enviar respostas/ }).click();
-  await q.waitForSelector("[role=alert]");
-  const textoDuplicado = await q.locator("[role=alert]").first().innerText();
-  ok("segundo envio do mesmo aparelho é recusado", /já/i.test(textoDuplicado), textoDuplicado.slice(0, 120));
+  await q.waitForSelector("text=Este aparelho já respondeu", { timeout: 10000 });
+  ok("segundo acesso do mesmo aparelho é recusado", (await q.locator("fieldset.q-cartao").count()) === 0);
   await publico.close();
 
   // 5. Resultados da equipe: contagem subiu. A amostra é garantida pelo teste,

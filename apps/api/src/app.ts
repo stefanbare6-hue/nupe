@@ -38,7 +38,9 @@ export async function buildApp(options: {
     // CSRF: mutações precisam vir da própria origem e com o cabeçalho do cliente.
     if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && req.url.startsWith("/api/")) {
       const isPublicSurvey = /^\/api\/public\/surveys\/[^/]+\/responses$/.test(req.url);
-      if (!isPublicSurvey && (req.headers["x-nupe-client"] !== "web" || !sameOrigin(req))) {
+      // A caixa do aparelho pede o recibo depois de recarregar: sem corpo e sem cookie.
+      const isRecibo = req.method === "POST" && /^\/api\/public\/surveys\/[^/]+\/recibo$/.test(req.url);
+      if (!isPublicSurvey && !isRecibo && (req.headers["x-nupe-client"] !== "web" || !sameOrigin(req))) {
         return reply.code(403).send({ error: "Requisição recusada." });
       }
     }

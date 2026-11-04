@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   DIARY_COLUMNS,
   FIVE_W2H_KEYS,
@@ -28,6 +28,18 @@ import { registrarEnvio, marcarPendente } from "../lib/gravacao";
 /** Aviso em tela estreita: aparece ao editar e some sozinho depois de salvar. */
 const AvisoEdicao = createContext<() => void>(() => undefined);
 import { irPara } from "../lib/rotas";
+import { BotaoDesfazer, RecuperarContexto, chaveCampo, chaveLinha } from "../componentes/Historico";
+
+/**
+ * O que a ficha 6 precisa do quadro para falar com a volta atrás da ficha
+ * inteira (não há linha aqui, só um campo por vez).
+ */
+interface ContextoFicha {
+  salvar: Salvar;
+  copia: (chave: string) => boolean;
+  marcarCopia: (chave: string) => void;
+}
+const FichaContexto = createContext<ContextoFicha | null>(null);
 
 export const FICHAS = [
   { n: 1, rota: "1", titulo: "Levantamento institucional", resumo: "Missão, estrutura e liderança do núcleo" },
@@ -53,6 +65,8 @@ function useSalvarFicha() {
   // pendente substitui e é enviado em seguida, sem perder a última alteração.
   const pendente = useRef<{ kind: string; corpo: unknown } | null>(null);
   const emCurso = useRef<Promise<void> | null>(null);
+  /** Chaves com cópia anterior guardada, conforme o último envio aceito. */
+  const [copias, setCopias] = useState<Record<string, boolean>>({});
   // Cada envio leva um número: resposta velha não sobrescreve o selo do envio novo.
   const seq = useRef(0);
 
@@ -71,8 +85,10 @@ function useSalvarFicha() {
       setCodigo(2);
       setErro("");
       try {
-        await api.put(`/api/records/${kind}`, corpo);
+        const r = await api.put<{ copias?: Record<string, boolean> }>(`/api/records/${kind}`, corpo);
         if (meu !== seq.current) return;
+        // O botão "Desfazer" só aparece onde o servidor tem o conteúdo anterior.
+        if (r?.copias && typeof r.copias === "object") setCopias((antes) => ({ ...antes, ...r.copias }));
         const h = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
         setTexto(pendente.current ? "Salvando…" : `Salvo às ${h}`);
         setCodigo(pendente.current ? 2 : 1);
@@ -120,6 +136,8 @@ function useSalvarFicha() {
     texto,
     erro,
     codigo,
+    /** Fichas com cópia anterior guardada no servidor (para o Desfazer). */
+    copias,
   };
 }
 
@@ -181,6 +199,57 @@ export function Ficha({ numero }: { numero: string }) {
   const salvar = useSalvarFicha();
   const salvarRef = useRef(salvar);
   salvarRef.current = salvar;
+  // Voltar atrás numa linha: a última edição já está gravada (senão o botão não
+  // apareceria), então primeiro sai o que estiver pendente, depois o servidor
+  // devolve o conteúdo anterior e a ficha é lida de novo — senão a próxima
+  // edição partiria do texto velho e desfaria a volta atrás sem querer.
+  const [emCurso, setEmCurso] = useState("");
+  const [erroDesfazer, setErroDesfazer] = useState("");
+  /** Linhas da ficha 2 gravadas pela primeira vez agora: já têm conteúdo anterior (vazio). */
+  const [copiasLocais, setCopiasLocais] = useState<Record<string, boolean>>({});
+  /** Lê a ficha de novo sem passar pelo aviso de carregando. */
+  const recarregarComFicha = useCallback(
+    () =>
+      api
+        .get<RecordsView>("/api/records")
+        .then((lista) => {
+          ultimaFoto.current = lista;
+          setQuadro({ numero: fichaDaRota() ?? numero, dados: lista });
+        })
+        .catch(() => undefined),
+    [numero],
+  );
+  const restaurarLinha = useCallback(
+    (chave: string) => {
+      if (emCurso) return;
+      setEmCurso(chave);
+      setErroDesfazer("");
+      void (async () => {
+        try {
+          await salvarRef.current.salvarAgora();
+          await api.restaurar(chave);
+          // Busca a ficha e troca também a cópia usada ao abrir a próxima: sem
+          // isso, a navegação interna mostraria a tela anterior à volta atrás.
+          await recarregarComFicha();
+        } catch (e) {
+          setErroDesfazer(e instanceof ApiError ? e.message : "Não foi possível desfazer agora. A alteração continua gravada.");
+        } finally {
+          setEmCurso("");
+        }
+      })();
+    },
+    [emCurso, recarregarComFicha],
+  );
+  const recuperar = useMemo(() => ({ emCurso, erro: erroDesfazer, restaurar: restaurarLinha }), [emCurso, erroDesfazer, restaurarLinha]);
+  // Ocupado enquanto roda a volta atrás: editar no meio faria a próxima leitura
+  // apagar a edição.
+  useEffect(() => {
+    if (emCurso) ocupadoRef.current();
+  }, [emCurso]);
+  /** O informe que inclui a cópia guardada agora pela ficha 2 (a primeira gravação das linhas). */
+  const copia = (chave: string) => Boolean(salvar.copias[chave] || copiasLocais[chave]);
+  const marcarCopia = useCallback((chave: string) => setCopiasLocais((c) => ({ ...c, [chave]: true })), []);
+  const contextoFicha = useMemo(() => ({ salvar, copia, marcarCopia }), [salvar, copia, marcarCopia]);
   // Cada ficha (e as matrizes) registra como enviar o que está pendente quando a
   // tela troca; sem isso, sair logo depois de digitar perderia a última edição.
   useEffect(
@@ -194,12 +263,12 @@ export function Ficha({ numero }: { numero: string }) {
   // Alterar o horário move os botões e tira o foco da célula a cada tecla.
   const telaEstreita = typeof window !== "undefined" && window.innerWidth <= 860;
   const [selo, setSelo] = useState<"parado" | "aberto">("parado");
+  const ocupadoRef = useRef(salvar.ocupado);
+  ocupadoRef.current = salvar.ocupado;
   const avisarEdicao = useCallback(() => {
     setSelo("aberto");
     ocupadoRef.current();
   }, []);
-  const ocupadoRef = useRef(salvar.ocupado);
-  ocupadoRef.current = salvar.ocupado;
   const mostrando = telaEstreita ? (selo === "aberto" ? erro || salvar.texto : "") : erro || salvar.texto;
   useEffect(() => {
     if (selo !== "aberto") return;
@@ -255,17 +324,26 @@ export function Ficha({ numero }: { numero: string }) {
           {carregando ? <Carregando /> : null}
           {!carregando && erro ? <Falha texto={erro} aoTentar={recarregar} /> : null}
           {dados ? (
-            <AvisoEdicao.Provider value={avisarEdicao}>
-              {info.n === 1 ? <Ficha1 dados={dados} salvar={salvar} /> : null}
-              {info.n === 2 ? <Ficha2 dados={dados} salvar={salvar} /> : null}
-              {info.n === 3 ? <Ficha3 dados={dados} salvar={salvar} recarregar={recarregar} /> : null}
-              {info.n === 4 ? <Ficha4 dados={dados} salvar={salvar} /> : null}
-              {info.n === 5 ? <Ficha5 dados={dados} salvar={salvar} /> : null}
-              {info.n === 6 ? <Ficha6 dados={dados} salvar={salvar} /> : null}
-              {info.n === 7 ? <Ficha7 dados={dados} salvar={salvar} /> : null}
-              {info.n === 8 ? <Ficha8 dados={dados} salvar={salvar} /> : null}
-              {telaEstreita ? null : <Selo texto={salvar.texto} erro={salvar.erro} />}
-            </AvisoEdicao.Provider>
+            <FichaContexto.Provider value={contextoFicha}>
+              <RecuperarContexto.Provider value={recuperar}>
+                <AvisoEdicao.Provider value={avisarEdicao}>
+                  {info.n === 1 ? <Ficha1 dados={dados} salvar={salvar} copia={copia} /> : null}
+                  {info.n === 2 ? <Ficha2 dados={dados} salvar={salvar} copia={copia} marcarCopia={marcarCopia} /> : null}
+                  {info.n === 3 ? <Ficha3 dados={dados} salvar={salvar} recarregar={recarregar} copia={copia} /> : null}
+                  {info.n === 4 ? <Ficha4 dados={dados} salvar={salvar} copia={copia} /> : null}
+                  {info.n === 5 ? <Ficha5 dados={dados} salvar={salvar} copia={copia} /> : null}
+                  {info.n === 6 ? <Ficha6 dados={dados} salvar={salvar} copia={copia} /> : null}
+                  {info.n === 7 ? <Ficha7 dados={dados} salvar={salvar} copia={copia} /> : null}
+                  {info.n === 8 ? <Ficha8 dados={dados} salvar={salvar} copia={copia} /> : null}
+                  {erroDesfazer ? (
+                    <p className="erro-texto" role="alert" style={{ marginTop: 12 }}>
+                      {erroDesfazer}
+                    </p>
+                  ) : null}
+                  {telaEstreita ? null : <Selo texto={salvar.texto} erro={salvar.erro} />}
+                </AvisoEdicao.Provider>
+              </RecuperarContexto.Provider>
+            </FichaContexto.Provider>
           ) : null}
         </div>
       </div>
@@ -290,6 +368,8 @@ function CampoTexto({
   placeholder = PLACEHOLDER,
   tipo = "text",
   fonte,
+  folha,
+  classe: extra,
 }: {
   valor: string;
   aoSalvar: (v: string) => void;
@@ -298,21 +378,39 @@ function CampoTexto({
   placeholder?: string;
   tipo?: string;
   fonte?: boolean;
+  /** Carimbo da ficha servida: quando muda, a célula volta ao valor do servidor. */
+  folha?: string;
+  /** Classe extra na caixa (a data do diário ocupa pouco espaço). */
+  classe?: string;
 }) {
   const [local, setLocal] = useState(valor);
-  // Guarda o último valor entregue: quando o dado do servidor volta com a mesma
-  // edição, a célula não pode ser reescrita (o cursor pularia para o fim).
-  const entregue = useRef(valor);
+  // Último texto que esta célula mandou ao servidor.
+  const mandado = useRef(valor);
+  /** Última ficha recebida do servidor, para reconhecer a leitura nova. */
+  const ultima = useRef({ folha, valor });
   useEffect(() => {
-    if (valor === entregue.current) return;
-    entregue.current = valor;
+    const leituraNova = folha !== undefined && folha !== ultima.current.folha;
+    ultima.current = { folha, valor };
+    // Uma leitura nova que traz o que esta célula mandou não mexe no campo (o
+    // cursor saltaria). Fora isso, o texto da célula acompanha o servidor.
+    if (leituraNova) {
+      if (valor !== mandado.current) {
+        setLocal(valor);
+        mandado.current = valor;
+      }
+      return;
+    }
+    if (valor === mandado.current) return;
     setLocal(valor);
-  }, [valor]);
+    mandado.current = valor;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valor, folha]);
   const confirmar = () => {
-    entregue.current = local;
-    if (local !== valor) aoSalvar(local);
+    if (local === valor) return;
+    mandado.current = local;
+    aoSalvar(local);
   };
-  const classe = "input" + (fonte === false ? " campo-fonte" : "");
+  const classe = "input" + (fonte === false ? " campo-fonte" : "") + (extra ? ` ${extra}` : "");
   if (multilinha)
     return (
       <textarea
@@ -341,7 +439,7 @@ function CampoTexto({
   );
 }
 
-function Ficha1({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
+function Ficha1({ dados, salvar, copia }: { dados: RecordsView; salvar: Salvar; copia: (chave: string) => boolean }) {
   const avisar = useContext(AvisoEdicao);
   const campos = dados.institution?.fields ?? {};
   return (
@@ -358,8 +456,12 @@ function Ficha1({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
                 rotulo={f.label}
                 valor={campos[f.key] ?? ""}
                 multilinha={f.kind === "long"}
+                folha={dados.institution?.updatedAt}
                 aoSalvar={(v) => (avisar(), salvar.salvar("institution", { fields: { ...campos, [f.key]: v }, numbers: dados.institution?.numbers ?? [] }))}
               />
+              <div className="acoes-linha">
+                <BotaoDesfazer chave={chaveCampo("institution", f.key)} temCopia={copia(chaveCampo("institution", f.key))} rotulo={f.label} />
+              </div>
             </dd>
           </div>
         ))}
@@ -368,7 +470,17 @@ function Ficha1({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
   );
 }
 
-function Ficha2({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
+function Ficha2({
+  dados,
+  salvar,
+  copia,
+  marcarCopia,
+}: {
+  dados: RecordsView;
+  salvar: Salvar;
+  copia: (chave: string) => boolean;
+  marcarCopia: (chave: string) => void;
+}) {
   const avisar = useContext(AvisoEdicao);
   const [locais] = useState(() =>
     NUMBERS_INITIAL.map((indicator) => ({ id: id(), indicator, value: "", source: "" })),
@@ -386,10 +498,14 @@ function Ficha2({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
     setLinhas(novos);
   }, [dados.institution?.numbers]);
   const gravar = (novas: RecordsView["institution"]["numbers"]) => {
+    const primeira = vazio.current;
     entregue.current = novas;
     vazio.current = false;
     setLinhas(novas);
     avisar();
+    // A primeira gravação deixa o conteúdo anterior vazio, mas guardado: essas
+    // linhas também podem ser desfeitas, mesmo antes do servidor confirmar.
+    if (primeira) for (const r of novas) marcarCopia(chaveLinha("institution", r.id));
     salvar.salvar("institution", { fields: dados.institution?.fields ?? {}, numbers: novas });
   };
 
@@ -398,7 +514,8 @@ function Ficha2({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
       <p className="legenda" style={{ marginBottom: 12, maxWidth: "68ch" }}>
         Anote o número e de onde veio (documento e ano). Indicador sem fonte não entra no relatório como dado.
       </p>
-      <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas."> <table className="tabela-ficha">
+      <p className="tabela-dica">Deslize para o lado para ver as outras colunas.</p>
+      <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas."> <table className="tabela-ficha tabela-numeros">
           <thead>
             <tr>
               {NUMBERS_COLUMNS.map((c) => (
@@ -406,6 +523,9 @@ function Ficha2({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
                   {c.label}
                 </th>
               ))}
+              <th scope="col">
+                <span className="micro">Ação</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -420,6 +540,13 @@ function Ficha2({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
                     />
                   </td>
                 ))}
+                <td>
+                  <BotaoDesfazer
+                    chave={chaveLinha("institution", r.id)}
+                    temCopia={copia(chaveLinha("institution", r.id))}
+                    rotulo={`a linha ${i + 1} da ficha 2`}
+                  />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -429,21 +556,53 @@ function Ficha2({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
   );
 }
 
-function Ficha3({ dados, salvar, recarregar }: { dados: RecordsView; salvar: Salvar; recarregar: () => void }) {
+function Ficha3({
+  dados,
+  salvar,
+  recarregar,
+  copia,
+}: {
+  dados: RecordsView;
+  salvar: Salvar;
+  recarregar: () => void;
+  copia: (chave: string) => boolean;
+}) {
   const avisar = useContext(AvisoEdicao);
   // Cópia local: editar, adicionar e remover usam sempre o que está na tela,
   // nunca a foto que veio do servidor (senão o item removido volta a aparecer).
   const [fluxos, setFluxos] = useState<RecordsView["flows"]>(dados.flows ?? []);
   const [criando, setCriando] = useState(false);
+  /** Fluxos tirados da lista nesta sessão, para o Desfazer ficar ao alcance. */
+  const [removidos, setRemovidos] = useState<RecordsView["flows"]>([]);
   const entregue = useRef(dados.flows ?? []);
   useEffect(() => {
     const novos = dados.flows ?? [];
     if (novos === entregue.current) return;
     entregue.current = novos;
     setFluxos(novos);
+    // Um fluxo que voltou do servidor (desfazer) não está mais "removido".
+    setRemovidos((antes) => {
+      const naFicha = new Set(novos.map((f) => f.id));
+      const ficam = antes.filter((f) => !naFicha.has(f.id));
+      return ficam.length === antes.length ? antes : ficam;
+    });
   }, [dados.flows]);
 
   const aplicar = (novos: RecordsView["flows"]) => {
+    // Fluxos que saíram da lista ficam à vista para voltar atrás: são o único
+    // jeito de alcançar o botão de um item que já não está na ficha.
+    const ficaram = new Set(novos.map((f) => f.id));
+    const sairam = fluxos.filter((f) => !ficaram.has(f.id));
+    if (sairam.length) {
+      const ids = new Set(sairam.map((f) => f.id));
+      setRemovidos((antes) => [...sairam, ...antes.filter((f) => !ids.has(f.id))]);
+    }
+    // Um fluxo que voltou pelo Desfazer sai da lista de removidos.
+    const voltaram = novos.filter((f) => removidos.some((r) => r.id === f.id));
+    if (voltaram.length) {
+      const ids = new Set(voltaram.map((f) => f.id));
+      setRemovidos((antes) => antes.filter((f) => !ids.has(f.id)));
+    }
     entregue.current = novos;
     setFluxos(novos);
     avisar();
@@ -507,13 +666,15 @@ function Ficha3({ dados, salvar, recarregar }: { dados: RecordsView; salvar: Sal
               >
                 Remover fluxo
               </BotaoConfirmavel>
+              <BotaoDesfazer chave={chaveLinha("flows", f.id)} temCopia={copia(chaveLinha("flows", f.id))} rotulo={`o fluxo ${f.name || "sem nome"}`} />
             </header>
             <div className="campo" style={{ marginBottom: 12 }}>
               <label htmlFor={`fluxo-proc-${f.id}`}>Processo</label>
               <CampoTexto rotulo="Processo" valor={f.process} aoSalvar={(v) => trocar({ process: v })} />
             </div>
-            <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas.">
-              <table className="tabela-ficha">
+            <p className="tabela-dica">Deslize para o lado para ver as outras colunas.</p>
+      <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas.">
+              <table className="tabela-ficha tabela-diario">
                 <thead>
                   <tr>
                     <th scope="col" style={{ width: 34 }}>
@@ -573,24 +734,50 @@ function Ficha3({ dados, salvar, recarregar }: { dados: RecordsView; salvar: Sal
           </section>
         );
       })}
+      {removidos.length ? (
+        <section className="desfazer-removidos" aria-label="Fluxos removidos agora">
+          <p className="micro">Removidos agora. Se foi engano, o fluxo volta inteiro pelos botões abaixo.</p>
+          <ul>
+            {removidos.map((f) => (
+              <li key={f.id}>
+                <span>{f.name || "Fluxo sem nome"}</span>
+                <BotaoDesfazer chave={chaveLinha("flows", f.id)} temCopia={copia(chaveLinha("flows", f.id))} rotulo={`o fluxo removido ${f.name || "sem nome"}`} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }
 
-function Ficha4({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
+function Ficha4({ dados, salvar, copia }: { dados: RecordsView; salvar: Salvar; copia: (chave: string) => boolean }) {
   const avisar = useContext(AvisoEdicao);
   // Cópia local: adicionar e remover usam o estado da tela, não a foto do servidor.
   const [sistemas, setSistemas] = useState<RecordsView["systems"]>(() =>
     dados.systems?.length ? dados.systems : SYSTEM_INITIAL.map((s) => ({ id: s.id, name: s.name, fields: {} as Record<string, string> })),
   );
+  /** Sistemas tirados da lista nesta sessão, para o Desfazer ficar ao alcance. */
+  const [removidos, setRemovidos] = useState<RecordsView["systems"]>([]);
   const entregue = useRef(dados.systems ?? []);
   useEffect(() => {
     const novos = dados.systems ?? [];
     if (!novos.length || novos === entregue.current) return;
     entregue.current = novos;
     setSistemas(novos);
+    setRemovidos((antes) => {
+      const naFicha = new Set(novos.map((s) => s.id));
+      const ficam = antes.filter((s) => !naFicha.has(s.id));
+      return ficam.length === antes.length ? antes : ficam;
+    });
   }, [dados.systems]);
   const gravar = (novos: RecordsView["systems"]) => {
+    const ficaram = new Set(novos.map((s) => s.id));
+    const sairam = sistemas.filter((s) => !ficaram.has(s.id));
+    if (sairam.length) {
+      const ids = new Set(sairam.map((s) => s.id));
+      setRemovidos((antes) => [...sairam, ...antes.filter((s) => !ids.has(s.id))]);
+    }
     entregue.current = novos;
     setSistemas(novos);
     avisar();
@@ -621,6 +808,7 @@ function Ficha4({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
             >
               Remover sistema
             </BotaoConfirmavel>
+            <BotaoDesfazer chave={chaveLinha("systems", s.id)} temCopia={copia(chaveLinha("systems", s.id))} rotulo={`o sistema ${s.name || "sem nome"}`} />
           </header>
           <dl className="campos-ficha dois">
             {SYSTEM_FIELDS.map((f) => (
@@ -651,11 +839,24 @@ function Ficha4({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
       >
         Adicionar sistema
       </button>
+      {removidos.length ? (
+        <section className="desfazer-removidos" aria-label="Sistemas removidos agora">
+          <p className="micro">Removidos agora. Se foi engano, o sistema volta inteiro pelos botões abaixo.</p>
+          <ul>
+            {removidos.map((s) => (
+              <li key={s.id}>
+                <span>{s.name || "Sistema sem nome"}</span>
+                <BotaoDesfazer chave={chaveLinha("systems", s.id)} temCopia={copia(chaveLinha("systems", s.id))} rotulo={`o sistema removido ${s.name || "sem nome"}`} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }
 
-function Ficha5({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
+function Ficha5({ dados, salvar, copia }: { dados: RecordsView; salvar: Salvar; copia: (chave: string) => boolean }) {
   const avisar = useContext(AvisoEdicao);
   const [padrao] = useState<RecordsView["procedures"]>(() =>
     PROCEDURES_INITIAL.map((p) => ({ ...p, responsible: "", deadline: p.deadline ?? "" })),
@@ -683,7 +884,8 @@ function Ficha5({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
         Para cada procedimento, registre a norma que o sustenta (documento, número e ano), quem responde e qual é o prazo. O
         responsável é preenchido por você.
       </p>
-      <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas."> <table className="tabela-ficha">
+      <p className="tabela-dica">Deslize para o lado para ver as outras colunas.</p>
+      <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas."> <table className="tabela-ficha tabela-fluxos">
           <thead>
             <tr>
               {PROCEDURE_COLUMNS.map((c) => (
@@ -691,10 +893,13 @@ function Ficha5({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
                   {c.label}
                 </th>
               ))}
+              <th scope="col">
+                <span className="micro">Ação</span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {linhas.map((p) => (
+            {linhas.map((p, i) => (
               <tr key={p.id}>
                 {PROCEDURE_COLUMNS.map((c) => {
                   const travado = c.key === "base" && (p as unknown as { fixedBase?: boolean }).fixedBase;
@@ -717,6 +922,13 @@ function Ficha5({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
                     </td>
                   );
                 })}
+                <td>
+                  <BotaoDesfazer
+                    chave={chaveLinha("procedures", p.id)}
+                    temCopia={copia(chaveLinha("procedures", p.id))}
+                    rotulo={`o procedimento ${p.procedure || i + 1}`}
+                  />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -729,7 +941,15 @@ function Ficha5({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
   );
 }
 
-function Ficha6({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
+function Ficha6({
+  dados,
+  salvar,
+  copia,
+}: {
+  dados: RecordsView;
+  salvar: Salvar;
+  copia: (chave: string) => boolean;
+}) {
   const avisar = useContext(AvisoEdicao);
   // Um estado só para a ficha inteira: o 5W2H vem antes do PDCA, e o segundo
   // não pode partir de valores velhos do primeiro.
@@ -745,6 +965,14 @@ function Ficha6({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
   }, [dados.improvement]);
   const w2h = imp.fiveW2H ?? {};
   const pdca = imp.pdca ?? {};
+  // A ficha 6 é uma peça só: cada campo tem cópia própria e a volta atrás
+  // devolve só aquele campo, sem mexer no resto.
+  const copiaCampo = (campo: string) => copia(chaveCampo("improvement", campo));
+  const desfazer = (campo: string, rotulo: string) => (
+    <div className="acoes-linha">
+      <BotaoDesfazer chave={chaveCampo("improvement", campo)} temCopia={copiaCampo(campo)} rotulo={rotulo} />
+    </div>
+  );
   const gravar = (mudanca: Partial<typeof imp>) => {
     const novo = { ...imp, ...mudanca };
     entregue.current = novo;
@@ -757,6 +985,7 @@ function Ficha6({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
       <div className="campo" style={{ marginBottom: 20 }}>
         <label htmlFor="f6-ideia">Ideia de melhoria</label>
         <CampoTexto rotulo="Ideia de melhoria" valor={imp.idea} aoSalvar={(v) => (avisar(), gravar({ idea: v }))} placeholder="Ex.: canal no WhatsApp com editais e projetos" />
+        {desfazer("idea", "a ideia de melhoria")}
       </div>
 
       <h2 className="secao" style={{ marginBottom: 4 }}>
@@ -773,6 +1002,7 @@ function Ficha6({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
             </dt>
             <dd>
               <CampoTexto rotulo={k.label} valor={w2h[k.key] ?? ""} multilinha aoSalvar={(v) => (avisar(), gravar({ fiveW2H: { ...w2h, [k.key]: v } }))} />
+              {desfazer(`fiveW2H.${k.key}`, `${k.label}, no 5W2H`)}
             </dd>
           </div>
         ))}
@@ -786,6 +1016,7 @@ function Ficha6({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
           <div key={k.key} className="campo">
             <label htmlFor={`f6-pdca-${k.key}`}>{k.label}</label>
             <CampoTexto rotulo={k.label} valor={pdca[k.key] ?? ""} multilinha aoSalvar={(v) => (avisar(), gravar({ pdca: { ...pdca, [k.key]: v } }))} placeholder={PLACEHOLDER} />
+            {desfazer(`pdca.${k.key}`, `${k.label}, no PDCA`)}
           </div>
         ))}
       </div>
@@ -796,17 +1027,30 @@ function Ficha6({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
   );
 }
 
-function Ficha7({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
+function Ficha7({ dados, salvar, copia }: { dados: RecordsView; salvar: Salvar; copia: (chave: string) => boolean }) {
   const avisar = useContext(AvisoEdicao);
   const [linhas, setLinhas] = useState<RecordsView["diary"]>(dados.diary ?? []);
+  /** Registros tirados da lista nesta sessão: continuam à mão para o Desfazer. */
+  const [removidos, setRemovidos] = useState<RecordsView["diary"]>([]);
   const entregue = useRef(dados.diary ?? []);
   useEffect(() => {
     const novos = dados.diary ?? [];
     if (novos === entregue.current) return;
     entregue.current = novos;
     setLinhas(novos);
+    setRemovidos((antes) => {
+      const naFicha = new Set(novos.map((r) => r.id));
+      const ficam = antes.filter((r) => !naFicha.has(r.id));
+      return ficam.length === antes.length ? antes : ficam;
+    });
   }, [dados.diary]);
   const gravar = (novas: RecordsView["diary"]) => {
+    const ficaram = new Set(novas.map((r) => r.id));
+    const sairam = linhas.filter((r) => !ficaram.has(r.id));
+    if (sairam.length) {
+      const ids = new Set(sairam.map((r) => r.id));
+      setRemovidos((antes) => [...sairam, ...antes.filter((r) => !ids.has(r.id))]);
+    }
     entregue.current = novas;
     setLinhas(novas);
     avisar();
@@ -823,11 +1067,13 @@ function Ficha7({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
           Ainda sem registros. Comece pelo primeiro que abrir a linha do diário.
         </p>
       ) : (
-        <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas."> <table className="tabela-ficha">
+        <>
+        <p className="tabela-dica">Deslize para o lado para ver as outras colunas.</p>
+      <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas."> <table className="tabela-ficha tabela-sistemas">
             <thead>
               <tr>
                 {DIARY_COLUMNS.map((c) => (
-                  <th key={c.key} scope="col">
+                  <th key={c.key} scope="col" className={`col-${c.key}`}>
                     {c.label}
                   </th>
                 ))}
@@ -852,6 +1098,7 @@ function Ficha7({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
                         <CampoTexto
                           rotulo={`registro ${i + 1}, ${c.label}`}
                           tipo={c.kind === "date" ? "date" : "text"}
+                          classe={c.kind === "date" ? "campo-data" : undefined}
                           valor={(r as unknown as Record<string, string>)[c.key] ?? ""}
                           aoSalvar={(v) => (avisar(), gravar(linhas.map((x) => (x.id === r.id ? { ...x, [c.key]: v } : x))))}
                         />
@@ -859,21 +1106,39 @@ function Ficha7({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
                     </td>
                   ))}
                   <td>
-                    <button
-                      type="button"
-                      className="btn sutil perigo"
-                      aria-label={`Remover registro ${i + 1}`}
-                      onClick={() => (avisar(), gravar(linhas.filter((x) => x.id !== r.id)))}
-                    >
-                      Remover
-                    </button>
+                    <div className="acoes-linha">
+                      <BotaoConfirmavel
+                        rotulo={`Remover registro ${i + 1}`}
+                        pergunta={`Remover o registro ${i + 1}? Ele sai do diário e do relatório. Dá para voltar atrás em seguida.`}
+                        acoes={["Remover registro", "Manter"]}
+                        variante="btn sutil perigo"
+                        aoConfirmar={() => gravar(linhas.filter((x) => x.id !== r.id))}
+                      >
+                        Remover
+                      </BotaoConfirmavel>
+                      <BotaoDesfazer chave={chaveLinha("diary", r.id)} temCopia={copia(chaveLinha("diary", r.id))} rotulo={`o registro ${i + 1}`} />
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        </>
       )}
+      {removidos.length ? (
+        <section className="desfazer-removidos" aria-label="Registros removidos agora">
+          <p className="micro">Removidos agora. Se foi engano, o registro volta com uma data, a observação e a fonte.</p>
+          <ul>
+            {removidos.map((r, i) => (
+              <li key={r.id}>
+                <span>{r.observation.trim().slice(0, 60) || r.date || `Registro ${i + 1}`}</span>
+                <BotaoDesfazer chave={chaveLinha("diary", r.id)} temCopia={copia(chaveLinha("diary", r.id))} rotulo={`o registro removido ${i + 1}`} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <button
         type="button"
         className="btn"
@@ -902,18 +1167,31 @@ function Ficha7({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
   );
 }
 
-function Ficha8({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
+function Ficha8({ dados, salvar, copia }: { dados: RecordsView; salvar: Salvar; copia: (chave: string) => boolean }) {
   const avisar = useContext(AvisoEdicao);
   const [locais] = useState(() => GLOSSARY_INITIAL.map((g) => ({ id: id(), ...g })));
   const [linhas, setLinhas] = useState<RecordsView["glossary"]>(dados.glossary?.length ? dados.glossary : locais);
+  /** Verbetes tirados da lista nesta sessão: continuam à mão para o Desfazer. */
+  const [removidos, setRemovidos] = useState<RecordsView["glossary"]>([]);
   const entregue = useRef(dados.glossary?.length ? dados.glossary : locais);
   useEffect(() => {
     const novos = dados.glossary ?? [];
     if (!novos.length || novos === entregue.current) return;
     entregue.current = novos;
     setLinhas(novos);
+    setRemovidos((antes) => {
+      const naFicha = new Set(novos.map((r) => r.id));
+      const ficam = antes.filter((r) => !naFicha.has(r.id));
+      return ficam.length === antes.length ? antes : ficam;
+    });
   }, [dados.glossary]);
   const gravar = (novas: RecordsView["glossary"]) => {
+    const ficaram = new Set(novas.map((r) => r.id));
+    const sairam = linhas.filter((r) => !ficaram.has(r.id));
+    if (sairam.length) {
+      const ids = new Set(sairam.map((r) => r.id));
+      setRemovidos((antes) => [...sairam, ...antes.filter((r) => !ids.has(r.id))]);
+    }
     entregue.current = novas;
     setLinhas(novas);
     avisar();
@@ -921,7 +1199,8 @@ function Ficha8({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
   };
   return (
     <div>
-      <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas."> <table className="tabela-ficha">
+      <p className="tabela-dica">Deslize para o lado para ver as outras colunas.</p>
+      <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas."> <table className="tabela-ficha tabela-glossario">
           <thead>
             <tr>
               {GLOSSARY_COLUMNS.map((c) => (
@@ -947,14 +1226,18 @@ function Ficha8({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
                   </td>
                 ))}
                 <td>
-                  <button
-                    type="button"
-                    className="btn sutil perigo"
-                    aria-label={`Remover verbete ${i + 1}`}
-                    onClick={() => (avisar(), gravar(linhas.filter((x) => x.id !== r.id)))}
-                  >
-                    Remover
-                  </button>
+                  <div className="acoes-linha">
+                    <BotaoConfirmavel
+                      rotulo={`Remover verbete ${i + 1}`}
+                      pergunta={`Remover o verbete ${i + 1}? Dá para voltar atrás em seguida.`}
+                      acoes={["Remover verbete", "Manter"]}
+                      variante="btn sutil perigo"
+                      aoConfirmar={() => gravar(linhas.filter((x) => x.id !== r.id))}
+                    >
+                      Remover
+                    </BotaoConfirmavel>
+                    <BotaoDesfazer chave={chaveLinha("glossary", r.id)} temCopia={copia(chaveLinha("glossary", r.id))} rotulo={`o verbete ${i + 1}`} />
+                  </div>
                 </td>
               </tr>
             ))}
@@ -969,6 +1252,19 @@ function Ficha8({ dados, salvar }: { dados: RecordsView; salvar: Salvar }) {
       >
         Adicionar sigla
       </button>
+      {removidos.length ? (
+        <section className="desfazer-removidos" aria-label="Verbetes removidos agora">
+          <p className="micro">Removidos agora. Se foi engano, o verbete volta inteiro pelos botões abaixo.</p>
+          <ul>
+            {removidos.map((r, i) => (
+              <li key={r.id}>
+                <span>{r.acronym || r.meaning.slice(0, 40) || `Verbete ${i + 1}`}</span>
+                <BotaoDesfazer chave={chaveLinha("glossary", r.id)} temCopia={copia(chaveLinha("glossary", r.id))} rotulo={`o verbete removido ${r.acronym || i + 1}`} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }
