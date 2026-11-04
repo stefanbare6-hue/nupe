@@ -122,6 +122,7 @@ table,
 .app {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 100svh;
   background: var(--ground);
 }
@@ -1013,8 +1014,98 @@ textarea.input {
 }
 
 /* ---------- telefone ---------- */
+/* ---------- barra do topo ----------
+
+   Sempre visível: é ela que dá a cara do sistema, também no questionário
+   aberto por quem responde. No desktop o menu vira só a marca (a navegação
+   está na barra lateral); no celular traz o botão que abre o menu. */
 .barra-topo {
-  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 64px;
+}
+/* A linha visível é a que fica presa no topo; o cabeçalho é só a moldura em que
+   o fundo escurecido do menu pode ficar atrás da navegação. */
+.barra-linha {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 100%;
+  padding: 0 24px;
+  background: linear-gradient(180deg, var(--navy) 0%, var(--navy-deep) 100%);
+  color: #ffffff;
+}
+.app .barra-topo {
+  grid-column: 1 / -1;
+}
+.barra-topo .tela {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font: 600 20px/1 var(--font-display);
+  letter-spacing: 0.01em;
+}
+.barra-topo .tela svg {
+  flex: none;
+}
+.barra-topo .btn {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+.barra-topo .btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: #ffffff;
+}
+.barra-direita {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.barra-topo .texto-controle {
+  color: var(--navy-ink-soft);
+}
+.barra-topo .texto-controle .grupo-botoes button {
+  min-width: 38px;
+  height: 40px;
+}
+.barra-topo .texto-controle button[aria-pressed="true"] {
+  background: #ffffff;
+  color: var(--navy);
+}
+.barra-topo .texto-controle button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.barra-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(9, 20, 40, 0.35);
+  cursor: pointer;
+}
+/* Camadas do menu no celular:
+   - o fundo escurecido fica abaixo da barra lateral (30) e do menu do
+     questionário (28), então os links continuam clicáveis;
+   - a linha da barra (2) fica acima de tudo, para o botão Fechar responder. */
+.app .barra-topo {
+  z-index: 31;
+}
+.q-tela .barra-topo {
+  z-index: 26;
+}
+@media (min-width: 861px) {
+  .barra-topo .menu-botao {
+    display: none;
+  }
+  .app .barra-topo {
+    padding-left: calc(var(--sidebar-width) + 24px);
+  }
 }
 .nav-inferior {
   display: none;
@@ -1024,6 +1115,15 @@ textarea.input {
   .sidebar .texto-controle {
     margin-top: auto;
   }
+  .barra-topo {
+    height: 58px;
+  }
+  .barra-linha {
+    padding: 0 12px 0 16px;
+  }
+  .app .barra-topo {
+    z-index: 31;
+  }
 }
 @media (max-width: 860px) {
   .app {
@@ -1031,13 +1131,12 @@ textarea.input {
     /* Sem definir as linhas, as duas linhas implícitas dividem a altura mínima da
        tela: numa página curta a barra do topo esticava e empurrava o conteúdo. */
     grid-template-rows: auto minmax(0, 1fr);
-    align-content: start;
   }
   .sidebar {
     position: fixed;
-    inset: 0;
+    inset: 58px 0 0;
     width: 100%;
-    height: 100%;
+    height: calc(100% - 58px);
     z-index: 30;
     transform: translateX(-100%);
     transition: transform var(--t-ui) var(--ease-out);
@@ -1045,35 +1144,6 @@ textarea.input {
   }
   .sidebar.aberta {
     transform: none;
-  }
-  .barra-topo {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    height: 58px;
-    padding: 0 12px 0 16px;
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    background: var(--navy);
-    color: #ffffff;
-  }
-  .barra-topo .tela {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font: 600 20px/1 var(--font-display);
-    letter-spacing: 0.01em;
-  }
-  .barra-topo .btn {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.3);
-    color: #ffffff;
-  }
-  .barra-topo .btn:hover {
-    background: rgba(255, 255, 255, 0.22);
-    border-color: #ffffff;
   }
   .canvas {
     padding: 20px 16px calc(102px + env(safe-area-inset-bottom));

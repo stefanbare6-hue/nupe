@@ -1,34 +1,49 @@
-/* Questionário público: uma coluna de leitura, perguntas separadas por régua,
-   opções grandes o bastante para o dedo e contraste alto. */
+/* Questionário público: a mesma linguagem do painel, sem o menu da estagiária.
+   Barra do topo azul, título e texto de apresentação num cartão branco, e cada
+   pergunta num cartão próprio, com o cabeçalho de seção em barra laranja.
+   Nada de acentos decorativos: o que muda de um bloco para outro é a moldura. */
 
-.q-fundo {
+.q-tela {
+  min-height: 100svh;
   background: var(--ground);
 }
-.cartao-q {
+.q-coluna {
+  display: grid;
+  gap: var(--gap);
   width: 100%;
-  max-width: 760px;
-  padding: 28px 36px 40px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: var(--shadow-card);
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--pad) var(--pad) 56px;
 }
-.cabo {
-  display: flex;
+
+/* cartão de abertura */
+.q-etiqueta {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: var(--fs-small);
-  color: var(--muted);
+  gap: 8px;
+  padding: 4px 12px 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-strong);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
-.cabo-marca {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
+.q-etiqueta::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
 }
-.texto-intro {
+.q-abertura .titulo {
+  margin-top: 14px;
+  max-width: 28ch;
+  text-wrap: balance;
+}
+.q-abertura .texto-intro {
   margin-top: 16px;
   max-width: 64ch;
   font-size: var(--fs-body);
@@ -38,8 +53,10 @@
 .fatos-resposta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 24px;
-  margin-top: 16px;
+  gap: 6px 22px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
   font-size: var(--fs-small);
   color: var(--muted);
 }
@@ -49,80 +66,81 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* perguntas: um cartão cada, o número em círculo azul */
 .perguntas {
   display: grid;
-  gap: 0;
+  gap: var(--gap);
   list-style: none;
   padding: 0;
   margin: 0;
 }
-.pergunta {
-  border: 0;
-  border-top: 1px solid var(--rule);
+.q-cartao {
+  display: grid;
+  align-content: start;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  padding: var(--card-pad);
+  min-width: 0;
   margin: 0;
-  padding: 24px 0 26px;
 }
-.pergunta:first-child {
-  border-top: 1px solid var(--border);
+.q-cartao > * {
+  max-width: 640px;
 }
-.pergunta legend {
-  display: block;
-  padding: 0;
-  max-width: 60ch;
+.q-cartao > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 16px;
 }
-.pergunta legend > .pergunta-num {
-  display: inline-grid;
-  margin-right: 10px;
-}
-.pergunta-num {
+.q-cartao .pergunta-num {
   display: inline-grid;
   place-items: center;
   width: 30px;
   height: 30px;
   border-radius: 50%;
   background: var(--navy);
+  color: #ffffff;
   font-size: var(--fs-micro);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  vertical-align: middle;
-}
-.pergunta-num::before {
-  content: attr(data-n);
-  color: #ffffff;
-  line-height: 1;
+  flex: none;
+  margin-top: 1px;
 }
 .pergunta-texto {
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-size: var(--fs-section);
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
   color: var(--text);
+  text-wrap: pretty;
 }
 .opcional {
-  margin-left: 8px;
+  display: block;
+  margin-top: 4px;
   font-size: var(--fs-micro);
   color: var(--faint);
   font-weight: 400;
 }
-.pergunta.com-erro {
-  background: var(--negative-bg);
-  border-radius: var(--radius-control);
-  padding-left: 14px;
-  padding-right: 14px;
+.q-cartao.com-erro {
+  border-color: var(--negative);
+  box-shadow: 0 0 0 3px var(--negative-bg), var(--shadow-card);
 }
-.pergunta.com-erro .pergunta-texto {
+.q-cartao.com-erro .pergunta-texto {
   text-decoration: underline;
   text-decoration-color: var(--negative);
   text-decoration-thickness: 2px;
   text-underline-offset: 4px;
 }
-.pergunta .erro-texto {
-  margin-top: 10px;
+.q-cartao .erro-texto {
+  margin-top: 12px;
 }
-.pergunta textarea.input {
-  min-height: 96px;
+.q-cartao textarea.input {
+  min-height: 120px;
 }
 
+/* opções: cartões clicáveis, selecionado em laranja */
 .opcoes {
   display: grid;
   gap: 10px;
@@ -153,7 +171,7 @@
   flex: none;
   width: 20px;
   height: 20px;
-  margin: 1px 0 0;
+  margin: 2px 0 0;
   border: 2px solid var(--muted);
   background: #ffffff;
   display: grid;
@@ -190,6 +208,7 @@
   outline-offset: 2px;
 }
 
+/* escala de 1 a 5: laranja no escolhido, como os indicadores do painel */
 .escala {
   max-width: 560px;
 }
@@ -217,10 +236,11 @@
   border-radius: var(--radius-control);
   cursor: pointer;
   font-variant-numeric: tabular-nums;
-  font-size: 17px;
-  font-weight: 600;
+  font-size: var(--fs-section);
+  font-weight: 700;
   position: relative;
   background: var(--surface);
+  transition: border-color var(--t-hover) ease, background-color var(--t-hover) ease;
 }
 .escala-botao input {
   position: absolute;
@@ -241,31 +261,134 @@
   outline-offset: 2px;
 }
 
-.fecho {
+/* fecho: aviso de anonimato e o botão de enviar */
+.q-fecho {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   justify-items: start;
-  margin-top: 26px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border);
+  margin-top: var(--gap);
+}
+.q-fecho .secao-cab {
+  width: 100%;
+}
+.q-fecho .btn.primario {
+  height: 48px;
+  padding: 0 26px;
+  font-size: var(--fs-body);
+}
+
+/* menu do celular no questionário: fica logo abaixo da barra */
+.q-menu {
+  position: fixed;
+  z-index: 28;
+  top: 58px;
+  right: 12px;
+  width: min(320px, calc(100vw - 24px));
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+}
+.q-menu[hidden] {
+  display: none;
+}
+.q-menu .texto-controle {
+  padding: 0;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: var(--fs-small);
+}
+.q-menu .texto-controle .grupo-botoes {
+  border: 1px solid var(--border);
+}
+.q-menu .texto-controle button {
+  color: var(--text);
+  background: var(--surface);
+}
+.q-menu .texto-controle button + button {
+  border-left: 1px solid var(--border);
+}
+.q-menu .texto-controle button[aria-pressed="true"] {
+  background: var(--navy);
+  color: #ffffff;
+}
+.q-menu .nav-item {
+  justify-content: flex-start;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+  font-weight: 600;
+  min-height: 48px;
+}
+.q-menu .nav-item:hover {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent-strong);
+}
+@media (min-width: 601px) {
+  .q-menu {
+    display: none;
+  }
+}
+
+/* telas curtas (carregando, encerrada, enviado): cartão estreito no meio */
+.q-aviso {
+  display: grid;
+  place-items: center;
+  min-height: calc(100svh - 64px);
+  padding: var(--pad) 16px;
+}
+.q-aviso > .painel {
+  width: 100%;
+  max-width: 560px;
+  padding: 28px;
+}
+.q-aviso .titulo {
+  margin-top: 14px;
+}
+.q-curto {
+  display: grid;
+  justify-items: start;
+}
+.q-curto > .icone-circulo + .titulo {
+  margin-top: 16px;
 }
 
 @media (max-width: 600px) {
-  .cartao-q {
-    border: 0;
-    border-radius: 0;
-    padding: 18px 18px 36px;
-    max-width: none;
-    box-shadow: none;
+  .q-coluna {
+    padding: 16px 12px calc(28px + env(safe-area-inset-bottom));
+    gap: 12px;
   }
-  .pergunta-texto {
-    font-size: 17px;
+  .q-abertura,
+  .q-cartao {
+    padding: 18px 16px;
   }
-  .fecho .btn {
-    width: 100%;
-  }
-  .cabo .micro {
+  /* Na barra do celular ficam a marca e o "Área do estagiário". O tamanho do
+     texto continua no menu do painel e vale para o questionário também. */
+  .barra-topo .texto-controle {
     display: none;
+  }
+  .barra-topo .tela {
+    min-width: 0;
+  }
+  .barra-topo .btn {
+    padding: 0 14px;
+    white-space: nowrap;
+  }
+  .q-aviso {
+    min-height: calc(100svh - 58px);
+    padding: 16px 12px;
+  }
+  .q-aviso > .painel {
+    padding: 22px 18px;
+  }
+  .q-fecho .btn.primario {
+    width: 100%;
   }
 }
 

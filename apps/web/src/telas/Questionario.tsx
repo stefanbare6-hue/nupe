@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Question } from "@nupe/core";
 import { api, ApiError, idDaSessao } from "../lib/http";
-import { Marca } from "../componentes/Icones";
+import { IconeCheck, IconePessoa } from "../componentes/Icones";
+import { aplicarTamanho, BarraTopo, BotoesTexto, tamanhoAtual, type Passo } from "../componentes/BarraTopo";
+import { irPara } from "../lib/rotas";
 
 interface PublicSurvey {
   audience: string;
@@ -17,6 +19,18 @@ type Valores = Record<string, string | string[] | number | null>;
 const ESCALA = [1, 2, 3, 4, 5];
 const numerais = [1, 2, 3, 4, 5];
 
+/** "Questionário - Docentes" vira "Docentes"; o rótulo do público volta ao topo. */
+function publicoDoTitulo(titulo: string): string {
+  return (titulo.replace(/^question[aá]rio\s*[-–:]\s*/i, "").split(":")[0] ?? "").trim() || titulo;
+}
+
+/** Títulos por público, sem cobrança: o texto fala de apoio e de rotina. */
+const CHAMADA: Record<string, string> = {
+  docentes: "como o NUPE pode apoiar melhor a rotina de pesquisa e extensão",
+  estudantes: "como o NUPE pode chegar mais perto de você",
+  equipe: "como o trabalho interno do NUPE pode funcionar melhor",
+};
+
 export function QuestionarioPublico({ publicId }: { publicId: string }) {
   const [dados, setDados] = useState<PublicSurvey | null | "vazio">(null);
   const [erroCarga, setErroCarga] = useState("");
@@ -25,6 +39,7 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
   const [enviando, setEnviando] = useState(false);
   const [falha, setFalha] = useState("");
   const [concluido, setConcluido] = useState(false);
+  const [jaRespondeu, setJaRespondeu] = useState(false);
   const topo = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,7 +71,8 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
     setValores((atual) => ({ ...atual, [id]: v }));
     setErros((e) => {
       if (!e[id]) return e;
-      const { [id]: _ignorado, ...resto } = e;
+      const resto = { ...e };
+      delete resto[id];
       return resto;
     });
   }
@@ -97,120 +113,139 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
     setEnviando(true);
     setFalha("");
     try {
-      const sessionId = idDaSessao();
-      const base = `/api/public/surveys/${encodeURIComponent(publicId)}`;
-      const { proof } = await api.post<{ proof: string }>("/api/public/surveys/contest", { collectionPublicId: publicId, sessionId });
-      await api.post(`${base}/responses`, { sessionId, proof, answers: valores });
+      // Pedido de envio (prova curta) e envio em seguida. Sem a prova o servidor
+      // recusa o pedido; ela nasce antes do envio para um robô não conseguir
+      // montar a resposta direto.
+      const id = idDaSessao();
+      const { proof } = await api.post<{ proof: string }>("/api/public/surveys/contest", {
+        collectionPublicId: publicId,
+        sessionId: id,
+      });
+      await api.post(`/api/public/surveys/${encodeURIComponent(publicId)}/responses`, {
+        sessionId: id,
+        proof,
+        answers: valores,
+      });
       setConcluido(true);
       window.scrollTo({ top: 0 });
     } catch (e) {
-      setFalha(e instanceof ApiError ? e.message : "Não foi possível enviar. Tente novamente.");
-      topo.current?.scrollIntoView({ block: "start" });
+      if (e instanceof ApiError && e.status === 409) {
+        // Este aparelho já respondeu (outra aba, ou antes de recarregar). A
+        // coleta continua aberta: o recado fica no topo e o botão desliga.
+        setJaRespondeu(true);
+        setFalha(
+          "Este aparelho já enviou uma resposta a este questionário. Se foi outra pessoa no mesmo aparelho, peça o link para ela responder no celular dela.",
+        );
+        window.scrollTo({ top: 0 });
+        return;
+      }
+      setFalha(e instanceof ApiError ? e.message : "Não foi possível enviar. Verifique a conexão e tente de novo.");
     } finally {
       setEnviando(false);
     }
   }
 
+  if (jaRespondeu && dados && dados !== "vazio")
+    return (
+      <Tela
+        mensagem="Este aparelho já respondeu"
+        icone={
+          <span className="icone-circulo" aria-hidden="true">
+            <IconeCheck size={24} />
+          </span>
+        }
+      >
+        <p className="legenda" style={{ marginTop: 8, maxWidth: "58ch" }} role="alert">
+          {falha}
+        </p>
+      </Tela>
+    );
+
   if (erroCarga)
     return (
-      <main className="tela-aberta">
-        <div className="cartao-q" style={{ maxWidth: 560 }}>
-          <Cabo />
-          <h1 className="titulo" style={{ marginTop: 20 }}>
-            Questionário indisponível
-          </h1>
-          <p className="legenda" style={{ marginTop: 8 }}>
-            {erroCarga}
-          </p>
-        </div>
-      </main>
+      <Tela mensagem="Questionário indisponível">
+        <p className="legenda" style={{ marginTop: 8 }}>
+          {erroCarga}
+        </p>
+      </Tela>
     );
 
   if (dados === null)
     return (
-      <main className="tela-aberta">
-        <p className="legenda" role="status" style={{ marginTop: 40 }}>
-          Carregando questionário…
-        </p>
-      </main>
+      <div className="q-tela">
+        <BarraTopo aberta={false} aoAlternarMenu={() => undefined} aoFechar={() => undefined} />
+        <div className="q-aviso">
+          <p className="legenda" role="status">
+            Carregando questionário…
+          </p>
+        </div>
+      </div>
     );
 
   if (dados === "vazio")
     return (
-      <main className="tela-aberta">
-        <div className="cartao-q" style={{ maxWidth: 560 }}>
-          <Cabo />
-          <h1 className="titulo" style={{ marginTop: 20 }}>
-            Este link não está disponível
-          </h1>
-          <p className="legenda" style={{ marginTop: 8 }}>
-            O endereço pode estar incompleto ou a coleta foi removida. Peça novamente o link ao responsável pelo NUPE.
-          </p>
-        </div>
-      </main>
+      <Tela mensagem="Este link não está disponível">
+        <p className="legenda" style={{ marginTop: 8 }}>
+          O endereço pode estar incompleto ou a coleta foi removida. Peça novamente o link ao responsável pelo NUPE.
+        </p>
+      </Tela>
     );
 
   if (concluido)
     return (
-      <main className="tela-aberta">
-        <div className="cartao-q" style={{ maxWidth: 560 }}>
-          <Cabo />
-          <h1 className="titulo" style={{ marginTop: 24 }}>
-            Resposta registrada
-          </h1>
-          <p className="legenda" style={{ marginTop: 10, maxWidth: "58ch" }}>
-            Obrigado(a) por participar. Sua resposta foi gravada de forma anônima e não pode ser identificada. Pode fechar esta
-            página.
-          </p>
-        </div>
-      </main>
+      <Tela
+        mensagem="Resposta registrada"
+        icone={
+          <span className="icone-circulo" aria-hidden="true">
+            <IconeCheck size={24} />
+          </span>
+        }
+      >
+        <p className="legenda" style={{ marginTop: 8, maxWidth: "58ch" }}>
+          Obrigado(a) por participar. Sua resposta foi gravada de forma anônima e não pode ser identificada. Pode fechar esta
+          página.
+        </p>
+      </Tela>
     );
 
   if (survey!.status !== "aberta")
     return (
-      <main className="tela-aberta">
-        <div className="cartao-q" style={{ maxWidth: 560 }}>
-          <Cabo />
-          <h1 className="titulo" style={{ marginTop: 24 }}>
-            {survey!.status === "encerrada" ? "Esta coleta foi encerrada" : "Esta coleta ainda não começou"}
-          </h1>
-          <p className="legenda" style={{ marginTop: 10, maxWidth: "58ch" }}>
-            {survey!.status === "encerrada"
-              ? "As respostas recebidas até o encerramento continuam valendo para o relatório do estágio."
-              : "O link já existe, mas a coleta está pausada. Tente novamente mais tarde."}
-          </p>
-        </div>
-      </main>
+      <Tela mensagem={survey!.status === "encerrada" ? "Esta coleta foi encerrada" : "Esta coleta ainda não começou"}>
+        <p className="legenda" style={{ marginTop: 8, maxWidth: "58ch" }}>
+          {survey!.status === "encerrada"
+            ? "As respostas recebidas até o encerramento continuam valendo para o relatório do estágio."
+            : "O link já existe, mas a coleta está pausada. Tente novamente mais tarde."}
+        </p>
+      </Tela>
     );
 
-  const totalObrigatorias = survey!.questions.filter((q) => !q.optional).length;
-  const respondidasObrigatorias = survey!.questions.filter((q) => !q.optional && !vazio(valores[q.id], q)).length;
+  const opcionais = survey!.questions.filter((q) => q.optional).length;
   const quantosErros = Object.keys(erros).length;
+  const publico = publicoDoTitulo(survey!.title);
 
   return (
-    <main className="tela-aberta q-fundo">
-      <div className="cartao-q" ref={topo}>
-        <Cabo />
+    <div className="q-tela" ref={topo}>
+      <BarraPublica respondidas={respondidas} total={survey!.questions.length} />
 
-        <header style={{ marginTop: 28 }}>
-          <p className="micro" style={{ letterSpacing: "0.02em" }}>
-            {survey!.title}
-          </p>
-          <h1 className="titulo" style={{ marginTop: 8 }}>
-            O que o NUPE precisa melhorar?
+      <div className="q-coluna">
+        <section className="painel q-abertura" aria-labelledby="q-titulo">
+          <p className="q-etiqueta">{survey!.title}</p>
+          <h1 id="q-titulo" className="titulo">
+            {publico}: {CHAMADA[survey!.audience] ?? "como o NUPE pode apoiar você"}
           </h1>
           <p className="legenda texto-intro">{survey!.intro}</p>
           <ul className="fatos-resposta" aria-label="Sobre o questionário">
             <li>
-              <b>{respondidasObrigatorias}</b> de {totalObrigatorias} perguntas obrigatórias respondidas
+              <b>{respondidas}</b> de {survey!.questions.length} perguntas respondidas
+              {opcionais ? ` (${opcionais} opcional${opcionais > 1 ? "is" : ""})` : ""}
             </li>
             <li>Anônimo: não pede nome, e-mail nem telefone</li>
             <li>Leva de 3 a 5 minutos</li>
           </ul>
-        </header>
+        </section>
 
         {falha || quantosErros ? (
-          <div id="resumo-erros" className="aviso" role="alert" tabIndex={-1} style={{ marginTop: 20 }}>
+          <div id="resumo-erros" className="aviso" role="alert" tabIndex={-1}>
             <span>
               <b>{falha || "Faltam respostas obrigatórias."}</b>
               {quantosErros ? ` Revise as perguntas destacadas abaixo.` : ""}
@@ -224,9 +259,11 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
             e.preventDefault();
             void enviar();
           }}
-          style={{ marginTop: 28 }}
         >
-          <ol className="perguntas" aria-label="Perguntas">
+          <h2 className="titulo-secao" style={{ marginTop: 0 }}>
+            Perguntas
+          </h2>
+          <ol className="perguntas">
             {survey!.questions.map((q) => (
               <li key={q.id}>
                 <Pergunta
@@ -240,30 +277,142 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
             ))}
           </ol>
 
-          <div className="fecho">
+          <section className="painel q-fecho" aria-labelledby="q-fecho-t" style={{ marginTop: "var(--gap)" }}>
+            <div className="secao-cab" style={{ marginBottom: 0 }}>
+              <h2 id="q-fecho-t" className="secao">
+                Enviar
+              </h2>
+            </div>
             <p className="legenda" style={{ maxWidth: "56ch" }}>
               Ao enviar, a resposta é gravada sem qualquer dado que identifique você. Uma mesma pessoa responde uma vez por
               aparelho.
             </p>
-            <button className="btn primario" type="submit" disabled={enviando} style={{ height: 44, padding: "0 22px" }}>
+            <button className="btn primario" type="submit" disabled={enviando}>
               {enviando ? "Enviando…" : "Enviar respostas"}
             </button>
-            <p className="micro">{respondidas} de {survey!.questions.length} perguntas respondidas</p>
-          </div>
+            <p className="micro">
+              {respondidas} de {survey!.questions.length} perguntas respondidas
+            </p>
+          </section>
         </form>
       </div>
-    </main>
+    </div>
   );
 }
 
-function Cabo() {
+/** Tela curta: barra do topo e um cartão estreito no meio. */
+function Tela({ mensagem, icone, children }: { mensagem: string; icone?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="cabo">
-      <span className="cabo-marca">
-        <Marca size={26} />
-        <span>NUPE · Núcleo de Pesquisa e Extensão · UNEB Campus XXI</span>
-      </span>
+    <div className="q-tela">
+      <BarraPublica respondidas={0} total={0} />
+      <div className="q-aviso">
+        <section className="painel q-curto" aria-labelledby="q-aviso-t">
+          {icone ?? null}
+          <h1 id="q-aviso-t" className="titulo">
+            {mensagem}
+          </h1>
+          {children}
+        </section>
+      </div>
     </div>
+  );
+}
+
+/** Lado direito da barra no questionário: só o tamanho do texto e a entrada da estagiária. */
+function LadoSimples() {
+  const [passo, setPasso] = useState<Passo>(() => tamanhoAtual());
+  return (
+    <>
+      <div className="texto-controle">
+        <span id="rotulo-texto-q">Tamanho do texto</span>
+        <BotoesTexto
+          passo={passo}
+          rotuloId="rotulo-texto-q"
+          aoEscolher={(p) => {
+            setPasso(p);
+            aplicarTamanho(p);
+          }}
+        />
+      </div>
+      <a
+        className="btn sutil"
+        href="/entrar"
+        onClick={(e) => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+          e.preventDefault();
+          irPara("/entrar");
+        }}
+      >
+        <IconePessoa size={17} />
+        Área do estagiário
+      </a>
+    </>
+  );
+}
+
+/** Barra do topo do questionário.
+ *
+ *  No computador mostra o tamanho do texto e a entrada da estagiária. No celular
+ *  esses dois vão para o menu, aberto pelo botão da barra, e o menu também ganha
+ *  o convite para conferir as respostas enquanto a pessoa não começa. */
+function BarraPublica({ respondidas, total }: { respondidas: number; total: number }) {
+  const [aberto, setAberto] = useState(false);
+  const [passo, setPasso] = useState<Passo>(() => tamanhoAtual());
+
+  useEffect(() => {
+    if (!aberto) return;
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAberto(false);
+    };
+    window.addEventListener("keydown", aoTeclar);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", aoTeclar);
+      document.body.style.overflow = "";
+    };
+  }, [aberto]);
+
+  return (
+    <>
+      <BarraTopo
+        aberta={aberto}
+        aoAlternarMenu={() => setAberto((v) => !v)}
+        aoFechar={() => setAberto(false)}
+        lado={<LadoSimples />}
+      />
+      <div id="navegacao" className={"q-menu" + (aberto ? " aberto" : "")} hidden={!aberto}>
+        <div className="texto-controle">
+          <span id="rotulo-texto-q2">Tamanho do texto</span>
+          <BotoesTexto
+            passo={passo}
+            rotuloId="rotulo-texto-q2"
+            aoEscolher={(p) => {
+              setPasso(p);
+              aplicarTamanho(p);
+            }}
+          />
+        </div>
+        <p className="legenda">
+          {total === 0
+            ? ""
+            : respondidas === 0
+              ? "Você ainda não respondeu nenhuma pergunta. "
+              : `${respondidas} de ${total} perguntas respondidas. `}
+          O questionário só é gravado quando você toca em "Enviar respostas".
+        </p>
+        <a
+          className="nav-item"
+          href="/entrar"
+          onClick={(e) => {
+            e.preventDefault();
+            setAberto(false);
+            irPara("/entrar");
+          }}
+        >
+          Área do estagiário
+        </a>
+      </div>
+    </>
   );
 }
 
@@ -289,19 +438,25 @@ function Pergunta({
   aoAlternar: (code: string) => void;
 }) {
   const nome = `p${q.number}`;
+  const idTexto = `${nome}-texto`;
   return (
-    <fieldset className={"pergunta" + (erro ? " com-erro" : "")} aria-describedby={erro ? `${nome}-erro` : q.optional ? `${nome}-opc` : undefined}>
-      <legend>
-        <span className="pergunta-num" aria-hidden="true" data-n={q.number}>
-          {null}
+    <fieldset
+      className={"q-cartao" + (erro ? " com-erro" : "")}
+      aria-describedby={erro ? `${nome}-erro` : q.optional ? `${nome}-opc` : undefined}
+    >
+      <header>
+        <span className="pergunta-num" aria-hidden="true">
+          {q.number}
         </span>
-        <span className="pergunta-texto">{q.text}</span>
-        {q.optional ? (
-          <span className="opcional" id={`${nome}-opc`}>
-            opcional
-          </span>
-        ) : null}
-      </legend>
+        <legend id={idTexto} className="pergunta-texto">
+          {q.text}
+          {q.optional ? (
+            <span className="opcional" id={`${nome}-opc`}>
+              opcional
+            </span>
+          ) : null}
+        </legend>
+      </header>
 
       {q.type === "single" ? (
         <div className="opcoes">

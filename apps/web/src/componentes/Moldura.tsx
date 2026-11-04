@@ -2,15 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import {
   IconeColetas,
-  IconeFechar,
   IconeFichas,
   IconeMatrizes,
-  IconeMenu,
   IconePainel,
   IconeRelatorio,
   IconeResultados,
   Marca,
 } from "./Icones";
+import { aplicarTamanho, BarraTopo, BotoesTexto, tamanhoAtual, type Passo } from "./BarraTopo";
 import { irPara } from "../lib/rotas";
 
 export interface ItemNav {
@@ -79,13 +78,7 @@ function NavLista({
    Três passos (normal, grande, maior) gravados no aparelho. A escala vive em
    <html data-texto>, onde os tokens trocam o tamanho do corpo inteiro. */
 
-type Passo = "normal" | "grande" | "maior";
 const CHAVE_TEXTO = "nupe-texto";
-const PASSOS: Array<{ id: Passo; rotulo: string; letra: string }> = [
-  { id: "normal", rotulo: "Tamanho do texto: normal", letra: "A" },
-  { id: "grande", rotulo: "Tamanho do texto: grande", letra: "A+" },
-  { id: "maior", rotulo: "Tamanho do texto: muito grande", letra: "A++" },
-];
 
 export function aplicarTextoSalvo() {
   if (typeof document === "undefined") return;
@@ -95,37 +88,24 @@ export function aplicarTextoSalvo() {
   } catch {
     salvo = null;
   }
-  if (salvo && PASSOS.some((p) => p.id === salvo)) document.documentElement.dataset.texto = salvo;
+  if (salvo && (salvo === "normal" || salvo === "grande" || salvo === "maior")) {
+    if (salvo === "normal") delete document.documentElement.dataset.texto;
+    else document.documentElement.dataset.texto = salvo;
+  }
 }
 
 function ControleTexto() {
-  const [passo, setPasso] = useState<Passo>(() => {
-    if (typeof document === "undefined") return "normal";
-    const atual = document.documentElement.dataset.texto;
-    return atual === "grande" || atual === "maior" ? atual : "normal";
-  });
+  const [passo, setPasso] = useState<Passo>(() => tamanhoAtual());
 
   function escolher(p: Passo) {
     setPasso(p);
-    if (p === "normal") delete document.documentElement.dataset.texto;
-    else document.documentElement.dataset.texto = p;
-    try {
-      localStorage.setItem(CHAVE_TEXTO, p);
-    } catch {
-      /* navegador sem armazenamento: vale só nesta visita */
-    }
+    aplicarTamanho(p);
   }
 
   return (
     <div className="texto-controle">
       <span id="rotulo-texto">Tamanho do texto</span>
-      <span className="grupo-botoes" role="group" aria-labelledby="rotulo-texto">
-        {PASSOS.map((p) => (
-          <button key={p.id} type="button" aria-pressed={passo === p.id} aria-label={p.rotulo} onClick={() => escolher(p.id)}>
-            {p.letra}
-          </button>
-        ))}
-      </span>
+      <BotoesTexto passo={passo} aoEscolher={escolher} rotuloId="rotulo-texto" />
     </div>
   );
 }
@@ -172,7 +152,15 @@ export function Moldura({
     };
     window.addEventListener("keydown", aoTeclar);
     painelRef.current?.querySelector<HTMLElement>("a, button")?.focus();
-    return () => window.removeEventListener("keydown", aoTeclar);
+    // Fora do celular o menu é a barra lateral fixa: não há o que prender.
+    const tela = window.matchMedia("(max-width: 860px)");
+    if (tela.matches) {
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      window.removeEventListener("keydown", aoTeclar);
+      document.body.style.overflow = "";
+    };
   }, [aberta]);
 
   const iniciais = nome
@@ -187,23 +175,7 @@ export function Moldura({
       <a className="skip" href="#conteudo" onClick={focarConteudo}>
         Ir para o conteúdo
       </a>
-      <header className="barra-topo nao-imprime">
-        <span className="tela">
-          <Marca size={30} />
-          NUPE
-        </span>
-        <button
-          ref={botaoRef}
-          className="btn sutil"
-          type="button"
-          aria-expanded={aberta}
-          aria-controls="navegacao"
-          onClick={() => setAberta((v) => !v)}
-        >
-          {aberta ? <IconeFechar /> : <IconeMenu />}
-          {aberta ? "Fechar" : "Menu"}
-        </button>
-      </header>
+      <BarraTopo aberta={aberta} botaoRef={botaoRef} aoAlternarMenu={() => setAberta((v) => !v)} aoFechar={() => setAberta(false)} />
 
       <aside id="navegacao" ref={painelRef} className={"sidebar nao-imprime" + (aberta ? " aberta" : "")} aria-label="Navegação principal">
         <div className="marca">
@@ -245,7 +217,6 @@ export function Moldura({
       <main id="conteudo" ref={mainRef} tabIndex={-1} className="canvas">
         <div className={larguraTotal ? undefined : "coluna"}>{children}</div>
       </main>
-
       <nav className="nav-inferior nao-imprime" aria-label="Atalhos">
         {[PRINCIPAL[0]!, PRINCIPAL[1]!, PRINCIPAL[2]!, CAMPO[0]!, CAMPO[2]!].map((it) => (
           <a

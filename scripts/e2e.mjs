@@ -59,6 +59,42 @@ const esperarRota = (pagina, rota) => pagina.waitForFunction((r) => window.locat
 
 const email = process.argv[3] ?? "maria@exemplo.br";
 const senha = process.argv[4] ?? "senha-teste-123";
+const NUPE_LINK = /\/e\/[A-Za-z0-9_-]+/;
+
+/** Responde tudo e envia, num navegador limpo (cada chamada gera um aparelho novo). */
+async function responder(browser, link) {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const q = await ctx.newPage();
+  await q.goto(link);
+  await q.waitForSelector(".q-cartao");
+  const campos = q.locator("fieldset.q-cartao");
+  const n = await campos.count();
+  for (let i = 0; i < n; i++) {
+    const p = campos.nth(i);
+    const radios = p.locator("input[type=radio]");
+    const checks = p.locator("input[type=checkbox]");
+    if (await radios.count()) await radios.last().check();
+    else if (await checks.count()) await checks.first().check();
+    else await p.locator("textarea").fill("Resposta de teste automatizado, sem dados pessoais.");
+  }
+  await q.getByRole("button", { name: /Enviar respostas/ }).click();
+  await q.waitForSelector("text=Resposta registrada", { timeout: 10000 });
+  await ctx.close();
+}
+
+/** Envia respostas novas da equipe até a coleta ter o mínimo de 5 (percentuais liberados).
+ *  Recebe uma função que devolve os cabeçalhos da sessão da estagiária. */
+async function completarAmostra(browser, base, cabecalhos) {
+  const ler = async (caminho) => (await fetch(`${base}${caminho}`, { headers: await cabecalhos() })).json();
+  const { links } = await ler("/api/collections/links");
+  if (!links.equipe) return -1;
+  for (let i = 0; i < 12; i++) {
+    const { summary } = await ler("/api/results/equipe");
+    if (summary.total >= 5) return summary.total;
+    await responder(browser, `${base}${links.equipe}`);
+  }
+  return -1;
+}
 
 const resultados = [];
 function ok(nome, condicao, detalhe = "") {
@@ -110,19 +146,19 @@ try {
   const publico = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const q = await publico.newPage();
   await q.goto(link);
-  await q.waitForSelector(".pergunta");
-  ok("questionário abre no endereço do link", (await q.locator(".pergunta").count()) === 8, `${await q.locator(".pergunta").count()} perguntas`);
+  await q.waitForSelector(".q-cartao");
+  ok("questionário abre no endereço do link", (await q.locator(".q-cartao").count()) === 8, `${await q.locator(".q-cartao").count()} perguntas`);
 
   // Enviar vazio: erro de validação
   await q.getByRole("button", { name: /Enviar respostas/ }).click();
   await q.waitForSelector("[role=alert]");
-  ok("validação impede envio vazio", (await q.locator(".pergunta.com-erro").count()) >= 5);
+  ok("validação impede envio vazio", (await q.locator(".q-cartao.com-erro").count()) >= 5);
 
   // Responder tudo
-  const perguntas = q.locator("fieldset.pergunta");
+  const perguntas = q.locator("fieldset.q-cartao");
   const total = await perguntas.count();
   for (let i = 0; i < total; i++) {
-    const p = q.locator("fieldset.pergunta").nth(i);
+    const p = q.locator("fieldset.q-cartao").nth(i);
     const radios = p.locator("input[type=radio]");
     if ((await radios.count()) > 0) {
       await radios.nth((await radios.count()) - 1).check();
@@ -141,9 +177,9 @@ try {
 
   // Envio repetido no mesmo aparelho
   await q.reload();
-  await q.waitForSelector(".pergunta");
+  await q.waitForSelector(".q-cartao");
   for (let i = 0; i < total; i++) {
-    const p = q.locator("fieldset.pergunta").nth(i);
+    const p = q.locator("fieldset.q-cartao").nth(i);
     const radios = p.locator("input[type=radio]");
     if ((await radios.count()) > 0) {
       await radios.nth(2).check();
@@ -162,11 +198,18 @@ try {
   ok("segundo envio do mesmo aparelho é recusado", /já/i.test(textoDuplicado), textoDuplicado.slice(0, 120));
   await publico.close();
 
-  // 5. Resultados da equipe: contagem subiu
+  // 5. Resultados da equipe: contagem subiu. A amostra é garantida pelo teste,
+  // sem depender de respostas que já estivessem no arquivo de dados.
+  const cookies = await contexto.cookies();
+  const amostraFinal = await completarAmostra(browser, base, async () => ({
+    cookie: cookies.map((c) => `${c.name}=${c.value}`).join("; "),
+    "x-nupe-client": "web",
+    origin: base,
+  }));
   await pagina.goto(`${base}/resultados/equipe`);
   await pagina.waitForSelector(".amostra-num");
   const amostra = Number((await pagina.locator(".amostra-num").innerText()).replace(/\D/g, ""));
-  ok("resultados refletem a nova resposta", amostra >= 5, `amostra ${amostra}`);
+  ok("resultados refletem as respostas", amostra >= 5 && amostra === amostraFinal, `amostra ${amostra}`);
 
   // 6. Ficha 1: preencher missão e conferir o selo de salvo
   await pagina.goto(`${base}/fichas/1`);
