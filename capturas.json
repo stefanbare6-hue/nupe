@@ -1,0 +1,15 @@
+{
+  "email": "maria@exemplo.br",
+  "senha": "senha-teste-123",
+  "saida": "capturas",
+  "dobra": true,
+  "rotas": [
+    { "url": "/", "nome": "painel", "espera": ".kpis" },
+    { "url": "/coletas", "nome": "coletas", "espera": "text=Coletas" },
+    { "url": "/resultados", "nome": "resultados", "espera": ".grade-principal" },
+    { "url": "/fichas/3", "nome": "ficha3", "espera": ".folha" },
+    { "url": "/fichas/1", "nome": "ficha1", "espera": ".folha" },
+    { "url": "/matrizes", "nome": "matrizes", "espera": ".porter-grade" },
+    { "url": "/relatorio", "nome": "relatorio", "espera": ".rel-doc" }
+  ]
+}

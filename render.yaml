@@ -1,0 +1,19 @@
+services:
+  - type: web
+    runtime: node
+    name: nupe
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node apps/api/dist/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Aponta o arquivo de dados para fora da pasta do projeto, que é
+      # descartada a cada publicação; /var é gravável no serviço.
+      - key: NUPE_DATA
+        value: /var/nupe/nupe.json
+      - key: NUPE_WEB_DIST
+        value: /opt/render/project/src/apps/web/dist
+      - key: NUPE_SECRET
+        generateValue: true

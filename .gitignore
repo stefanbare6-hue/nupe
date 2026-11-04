@@ -1,0 +1,16 @@
+# Dependências e artefatos de compilação
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Dados reais do NUPE: nunca versionar (contêm o hash da senha da estagiária)
+data/
+
+# Capturas de tela geradas pelos scripts
+capturas/
+
+# Sistema operacional e editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

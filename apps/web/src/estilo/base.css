@@ -1,0 +1,1352 @@
+/* NUPE — base: reset, moldura com barra lateral azul, cartões, controles e resultados.
+   Direção: painel de campo legível. Texto grande, contraste alto, laranja só em
+   ação e dado. Sem imagens decorativas: o peso vem do espaço e da hierarquia. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scrollbar-gutter: stable;
+}
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font: 400 var(--fs-body) / var(--lh-body) var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+ul,
+ol,
+dl,
+dd {
+  margin: 0;
+}
+ul[class],
+ol[class] {
+  padding: 0;
+  list-style: none;
+}
+img,
+svg,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.num,
+table,
+.kpi-value {
+  font-variant-numeric: tabular-nums;
+}
+.skip {
+  position: absolute;
+  left: -9999px;
+}
+/* Precisa ficar acima da barra lateral e da barra inferior, que são composições
+   próprias com z-index alto. */
+.skip:focus {
+  left: 12px;
+  top: 12px;
+  z-index: 120;
+  padding: 12px 16px;
+  min-height: 44px;
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--focus);
+  border-radius: var(--radius-control);
+  font-weight: 600;
+  box-shadow: var(--shadow-pop);
+}
+
+/* títulos */
+.titulo {
+  font: 600 var(--fs-display) / 1.05 var(--font-display);
+  letter-spacing: -0.015em;
+  color: var(--text);
+  text-wrap: balance;
+}
+.secao {
+  font: 700 var(--fs-section) / 1.3 var(--font);
+  letter-spacing: -0.005em;
+}
+.legenda {
+  color: var(--muted);
+}
+.meta {
+  color: var(--faint);
+  font-size: var(--fs-small);
+}
+.micro {
+  font-size: var(--fs-micro);
+  color: var(--faint);
+  line-height: 1.45;
+}
+
+/* ---------- moldura ---------- */
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  min-height: 100svh;
+  background: var(--ground);
+}
+
+/* barra lateral: azul sólido, texto claro, item ativo em laranja */
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 22px 14px 14px;
+  overflow: auto;
+  background: linear-gradient(180deg, var(--navy) 0%, var(--navy-deep) 100%);
+  color: var(--navy-ink);
+}
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 10px 22px;
+}
+.marca svg {
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+.marca-nome {
+  font: 600 20px/1.1 var(--font-display);
+  color: #ffffff;
+  letter-spacing: 0.01em;
+}
+.marca-sub {
+  font-size: var(--fs-micro);
+  color: var(--navy-ink-soft);
+  line-height: 1.35;
+  margin-top: 3px;
+}
+.grupo {
+  margin: 20px 10px 8px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: var(--fs-micro);
+  color: var(--navy-ink-soft);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: var(--nav-row);
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  color: var(--navy-ink);
+  font-size: var(--fs-body);
+  transition: background-color var(--t-hover) ease, color var(--t-hover) ease;
+}
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #ffffff;
+}
+.nav-item[aria-current="page"] {
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.55);
+}
+.nav-item .n {
+  font-size: var(--fs-micro);
+  color: var(--navy-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.nav-item[aria-current="page"] .n {
+  color: #ffffff;
+}
+.rodape-nav {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.rodape-nav .nav-item {
+  min-height: 56px;
+}
+.rodape-nav .avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--navy);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: var(--fs-micro);
+  flex: none;
+}
+.rodape-nav .nome-caixa {
+  display: grid;
+  line-height: 1.25;
+  min-width: 0;
+}
+.rodape-nav .nome-caixa strong {
+  font-weight: 600;
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rodape-nav .nome-caixa span {
+  font-size: var(--fs-micro);
+  color: var(--navy-ink-soft);
+}
+
+/* tamanho do texto: três botões pequenos no rodapé da barra */
+.texto-controle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 4px;
+  color: var(--navy-ink-soft);
+  font-size: var(--fs-micro);
+}
+.texto-controle .grupo-botoes {
+  display: inline-flex;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.texto-controle button {
+  min-width: 42px;
+  min-height: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--navy-ink);
+  cursor: pointer;
+  font-weight: 600;
+}
+.texto-controle button + button {
+  border-left: 1px solid rgba(255, 255, 255, 0.22);
+}
+.texto-controle button[aria-pressed="true"] {
+  background: #ffffff;
+  color: var(--navy);
+}
+.texto-controle button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.canvas {
+  min-width: 0;
+  padding: var(--pad) var(--pad) 64px;
+}
+.coluna {
+  max-width: 1240px;
+}
+
+/* cabeçalho de tela */
+.cabeca {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  margin-bottom: 24px;
+}
+.cabeca .sub {
+  margin-top: 8px;
+  color: var(--muted);
+  max-width: 70ch;
+  font-size: var(--fs-body);
+}
+.cabeca .acoes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- cartões ---------- */
+.painel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: var(--card-pad);
+  min-width: 0;
+  box-shadow: var(--shadow-card);
+}
+.painel > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.grade {
+  display: grid;
+  gap: var(--gap);
+}
+.grade-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.grade-principal {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 22px;
+  align-items: start;
+}
+.pilha {
+  display: grid;
+  gap: var(--gap);
+}
+
+/* indicadores: cartões separados, com ícone em círculo azul */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--gap);
+  margin-bottom: 22px;
+}
+.kpi {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+.kpi-icone {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.kpi-label {
+  color: var(--muted);
+  font-size: var(--fs-small);
+  font-weight: 500;
+}
+.kpi-value {
+  font-size: var(--fs-kpi);
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.kpi-value small {
+  font-size: 0.45em;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 6px;
+}
+.kpi .delta {
+  font-size: var(--fs-small);
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* círculo de ícone reutilizável em cartões e listas */
+.icone-circulo {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.icone-circulo.claro {
+  background: var(--accent-bg);
+  color: var(--accent-strong);
+}
+
+/* linhas de lista */
+.linhas {
+  display: grid;
+}
+.linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  padding: 9px 0;
+}
+.linha + .linha {
+  border-top: 1px solid var(--rule);
+}
+
+/* ---------- tabelas ---------- */
+.tabela-wrap {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.tabela-wrap:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th {
+  height: 42px;
+  padding: 0 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: var(--fs-small);
+  color: var(--muted);
+  background: var(--surface-soft);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td {
+  padding: 12px;
+  font-size: var(--fs-body);
+  border-bottom: 1px solid var(--rule);
+  vertical-align: baseline;
+}
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+th.n,
+td.n {
+  text-align: right;
+}
+.painel .tabela-wrap {
+  margin: 0 calc(var(--card-pad) * -1);
+  padding: 0 var(--card-pad);
+}
+/* A tabela de coletas é larga no computador; no telefone cabe sem rolar. */
+.tabela-coletas {
+  min-width: 580px;
+}
+.tabela-coletas th:nth-child(5),
+.tabela-coletas td:nth-child(5) {
+  white-space: nowrap;
+}
+@media (max-width: 860px) {
+  .tabela-coletas {
+    min-width: 0;
+  }
+  .tabela-coletas th:nth-child(5),
+  .tabela-coletas td:nth-child(5) {
+    display: none;
+  }
+  .tabela-coletas th,
+  .tabela-coletas td {
+    padding: 12px 8px;
+  }
+  .tabela-coletas th:first-child,
+  .tabela-coletas td:first-child {
+    padding-left: 0;
+  }
+  .tabela-coletas th:last-child,
+  .tabela-coletas td:last-child {
+    padding-right: 0;
+  }
+  .tabela-coletas td:nth-child(2) {
+    font-size: var(--fs-small);
+  }
+  .tabela-coletas td:nth-child(3) {
+    white-space: nowrap;
+  }
+  .painel .tabela-wrap {
+    margin: 0 calc(var(--card-pad) * -1);
+    padding: 0 var(--card-pad);
+  }
+}
+
+/* situação: pastilha clara com ponto de cor */
+.estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 11px 3px 9px;
+  border-radius: 999px;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--raised);
+  color: var(--muted);
+}
+.estado::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.estado.ok {
+  background: var(--positive-bg);
+  color: var(--positive);
+}
+.estado.pend {
+  background: var(--warning-bg);
+  color: var(--warning);
+  /* Segundo indicador, além da cor: borda tracejada para quem não distingue amarelo. */
+  border: 1px dashed currentColor;
+  padding: 2px 10px 2px 8px;
+}
+.estado.off {
+  background: var(--raised);
+  color: var(--muted);
+}
+
+/* aviso: ícone, texto e ação em colunas distintas */
+.aviso {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-card);
+  color: var(--accent-strong);
+  font-size: var(--fs-small);
+  margin-bottom: 16px;
+}
+/* Aviso simples, sem ícone: o texto ocupa a coluna do meio e a última. */
+.aviso:not(:has(> svg)) > :first-child {
+  grid-column: 1 / -1;
+}
+.aviso > svg {
+  grid-row: 1;
+  align-self: start;
+  margin-top: 2px;
+}
+.aviso > svg + * {
+  grid-column: 2;
+}
+.aviso > svg ~ :last-child {
+  grid-column: 3;
+}
+/* Com ação, o texto fica mais largo no telefone: a ação desce para a linha de baixo. */
+@media (max-width: 560px) {
+  .aviso:has(> button) {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .aviso > svg ~ button.texto-link {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+.aviso b {
+  font-weight: 700;
+}
+
+/* ---------- controles ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--control-height);
+  padding: 0 16px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--control);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: var(--fs-small);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--t-hover) ease, border-color var(--t-hover) ease, transform var(--t-press) var(--ease-out);
+}
+.btn:hover {
+  background: var(--surface-soft);
+  border-color: var(--text);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.btn.primario {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+  box-shadow: 0 6px 16px -10px rgba(168, 70, 15, 0.8);
+}
+.btn.primario:hover {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+.btn.sutil {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+.btn.sutil:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+.btn.perigo {
+  color: var(--negative);
+  border-color: #e5c3bf;
+}
+.btn.perigo:hover {
+  background: var(--negative-bg);
+  border-color: var(--negative);
+}
+.btn.largo {
+  width: 100%;
+}
+.texto-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-strong);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+/* Botão que se comporta como link dentro de uma frase: o alvo de toque
+   acompanha a altura da linha em vez de encolher para o tamanho do texto. */
+button.texto-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  vertical-align: baseline;
+}
+.texto-link:hover {
+  color: var(--text);
+}
+
+.campo {
+  display: grid;
+  gap: 7px;
+}
+.campo > label {
+  font-weight: 600;
+  font-size: var(--fs-small);
+  color: var(--text);
+}
+.campo .dica {
+  color: var(--faint);
+  font-size: var(--fs-small);
+  font-weight: 400;
+}
+.input,
+select.input,
+textarea.input {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 0 12px;
+  border: 1px solid var(--control);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: var(--text);
+}
+textarea.input {
+  padding: 10px 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.input::placeholder {
+  color: var(--faint);
+  opacity: 1;
+  font-style: normal;
+}
+.input:hover {
+  border-color: var(--muted);
+}
+.input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 0;
+  border-color: var(--focus);
+}
+
+/* abas de público: agrupadas, com a ativa em branco sobre areia */
+.segmentado {
+  display: flex;
+  flex-wrap: wrap;
+  width: max-content;
+  max-width: 100%;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 12px;
+  background: var(--ground-2);
+  border: 1px solid var(--border);
+}
+.segmentado button,
+.segmentado a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  font-weight: 500;
+  font-size: var(--fs-small);
+}
+.segmentado button:hover,
+.segmentado a:hover {
+  color: var(--text);
+}
+.segmentado [aria-pressed="true"],
+.segmentado [aria-selected="true"],
+.segmentado [aria-current="true"] {
+  background: #ffffff;
+  color: var(--text);
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(21, 42, 75, 0.12);
+  /* Indicador que não depende da cor: barra inferior azul-marinho. */
+  box-shadow:
+    inset 0 -3px 0 var(--navy),
+    0 1px 2px rgba(21, 42, 75, 0.12);
+}
+
+/* ---------- barras de resultado ---------- */
+.barras {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.barra-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 14px;
+  font-size: var(--fs-body);
+  padding: 5px 0;
+}
+.barra-rotulo {
+  color: var(--text);
+}
+.barra-valor {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  font-weight: 600;
+}
+.barra-valor .meta {
+  color: var(--faint);
+  font-weight: 400;
+}
+.barra-trilho {
+  grid-column: 1 / -1;
+  height: 10px;
+  background: var(--ground-2);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 5px;
+}
+.barra-preenchida {
+  height: 100%;
+  background: var(--data);
+  border-radius: 999px;
+  min-width: 2px;
+}
+.barra-linha.zera .barra-valor {
+  color: var(--faint);
+  font-weight: 400;
+}
+.barra-linha.zera .barra-preenchida {
+  min-width: 0;
+}
+
+/* escala 1 a 5 */
+.escala-resultado {
+  display: grid;
+  gap: 14px;
+}
+.escala-numeros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 32px;
+  align-items: baseline;
+}
+.escala-numeros > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.escala-numeros .kpi-label {
+  width: auto;
+}
+.escala-valor {
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.escala-grafico {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 12px;
+}
+.escala-eixo-y {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-self: stretch;
+  padding: 20px 0 22px;
+  text-align: right;
+  font-size: var(--fs-micro);
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.colunas {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: end;
+  gap: 18px;
+  height: 132px;
+  border-bottom: 2px solid var(--control);
+}
+.coluna-barra {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  justify-items: center;
+  gap: 4px;
+  height: 100%;
+  align-items: end;
+}
+.coluna-barra .barra {
+  align-self: end;
+  width: 100%;
+  max-width: 64px;
+  background: var(--data);
+  border-radius: 6px 6px 0 0;
+  min-height: 2px;
+}
+.coluna-barra .rotulo {
+  font-size: var(--fs-micro);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.coluna-barra .rotulo.nota {
+  padding-top: 6px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: var(--fs-small);
+}
+
+/* ---------- resultados ---------- */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.resultado-pergunta > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.resultado-pergunta h3 {
+  font-weight: 700;
+  font-size: var(--fs-body);
+  line-height: 1.4;
+  max-width: 62ch;
+}
+.resultado-pergunta h3 .pergunta-num {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: #ffffff;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  vertical-align: middle;
+}
+.resultado-pergunta > header .micro {
+  margin-left: auto;
+  text-align: right;
+}
+.resultado-pergunta .pergunta-topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 0 12px;
+  flex-wrap: wrap;
+}
+.amostra-num {
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+/* respostas abertas agrupadas por tema */
+.grupo-aberto {
+  display: grid;
+  gap: 0;
+  margin-top: 16px;
+  border-top: 1px solid var(--rule);
+}
+.grupo-aberto > details {
+  border-bottom: 1px solid var(--rule);
+}
+.grupo-aberto > details > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 4px;
+  cursor: pointer;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text);
+}
+.grupo-aberto > details > summary::marker {
+  color: var(--accent);
+}
+.grupo-aberto > details > summary:hover {
+  color: var(--accent-strong);
+}
+.grupo-aberto ul {
+  display: grid;
+  gap: 16px;
+  padding: 4px 0 18px 20px;
+}
+.grupo-aberto blockquote {
+  margin: 0;
+  padding-left: 14px;
+  border-left: 3px solid var(--data-soft);
+  color: var(--text);
+  font-size: var(--fs-body);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tema-escolha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.tema-escolha select {
+  width: auto;
+  max-width: 300px;
+  min-height: 38px;
+  font-size: var(--fs-small);
+  padding: 0 8px;
+}
+.tema-escolha .micro {
+  white-space: nowrap;
+}
+
+/* ---------- estados gerais ---------- */
+.vazio {
+  padding: 28px 20px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-card);
+  color: var(--muted);
+  text-align: center;
+  background: var(--surface-soft);
+}
+.erro-texto {
+  color: var(--negative);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+.salvo {
+  font-size: var(--fs-small);
+  color: var(--muted);
+  min-height: 1.2em;
+}
+
+/* ---------- telefone ---------- */
+.barra-topo {
+  display: none;
+}
+.nav-inferior {
+  display: none;
+}
+/* Controle de tamanho do texto: no telefone fica no menu, não na barra inferior. */
+@media (max-width: 860px) {
+  .sidebar .texto-controle {
+    margin-top: auto;
+  }
+}
+@media (max-width: 860px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    /* Sem definir as linhas, as duas linhas implícitas dividem a altura mínima da
+       tela: numa página curta a barra do topo esticava e empurrava o conteúdo. */
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: start;
+  }
+  .sidebar {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 30;
+    transform: translateX(-100%);
+    transition: transform var(--t-ui) var(--ease-out);
+    padding-top: 16px;
+  }
+  .sidebar.aberta {
+    transform: none;
+  }
+  .barra-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    height: 58px;
+    padding: 0 12px 0 16px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--navy);
+    color: #ffffff;
+  }
+  .barra-topo .tela {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font: 600 20px/1 var(--font-display);
+    letter-spacing: 0.01em;
+  }
+  .barra-topo .btn {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+  }
+  .barra-topo .btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: #ffffff;
+  }
+  .canvas {
+    padding: 20px 16px calc(102px + env(safe-area-inset-bottom));
+  }
+  /* Borda de recorte para o conteúdo não vazar sob as bordas arredondadas dos cartões. */
+  .painel .tabela-wrap {
+    border-radius: var(--radius-control);
+  }
+  .segmentado {
+    width: 100%;
+    /* Quebra em duas linhas em vez de esconder a última aba fora da tela. */
+    flex-wrap: wrap;
+  }
+  .segmentado button,
+  .segmentado a {
+    flex: none;
+  }
+  .grade-principal,
+  .grade-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .kpi {
+    padding: 14px 16px;
+  }
+  .nav-inferior {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 15;
+    min-height: calc(64px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -6px 20px -16px rgba(21, 42, 75, 0.5);
+    backdrop-filter: blur(6px);
+    background: rgba(255, 255, 255, 0.97);
+  }
+  .nav-inferior a {
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 3px;
+    min-height: 64px;
+    font-size: var(--fs-micro);
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .nav-inferior a[aria-current="page"] {
+    color: var(--accent-strong);
+    font-weight: 700;
+    /* Segundo indicador além da cor: barra laranja sobre o ícone. */
+    box-shadow: inset 0 3px 0 var(--accent);
+  }
+  .nav-inferior a[aria-current="page"] svg {
+    stroke-width: 2;
+  }
+  .nav-inferior svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+@media (min-width: 861px) {
+  .nav-inferior {
+    display: none !important;
+  }
+}
+
+/* coletas: três colunas no desktop, empilhadas no telefone */
+.coletas-grafo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap);
+  align-items: start;
+}
+@media (max-width: 1180px) {
+  .coletas-grafo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .coletas-grafo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.coleta > header {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+}
+.coleta-titulo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.coleta-titulo h2 {
+  min-width: 0;
+}
+.coleta-campos {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+.coleta-acoes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+}
+.painel-link {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-control);
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+/* O bloco do link é o filho direto do cartão: usa a largura toda, não a do rótulo. */
+.coleta > .painel-link {
+  justify-self: stretch;
+}
+.coleta > .painel-link > .link-linha {
+  justify-self: stretch;
+}
+.link-linha {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.link-linha .input {
+  font-size: var(--fs-small);
+  min-width: 0;
+  /* O código do link é o que distingue a coleta: o campo cede espaço ao botão. */
+  flex: 1 1 auto;
+  letter-spacing: -0.01em;
+  /* O começo do código é o que identifica; o resto aparece ao focar o campo. */
+  text-overflow: ellipsis;
+}
+.link-linha .btn {
+  flex: none;
+  padding: 0 12px;
+}
+.duas-colunas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 36px;
+}
+.duas-colunas p {
+  max-width: 62ch;
+}
+@media (max-width: 760px) {
+  .duas-colunas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.atalhos {
+  display: grid;
+  gap: 2px;
+  margin-top: 12px;
+}
+.atalhos a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 0;
+  border-top: 1px solid var(--rule);
+  color: var(--text);
+  font-weight: 500;
+}
+.atalhos li:last-child a {
+  border-bottom: 1px solid var(--rule);
+}
+.atalhos a:hover {
+  color: var(--accent-strong);
+}
+.atalhos a::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
+/* modal */
+.modal-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(18, 33, 60, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.modal {
+  width: 100%;
+  max-width: 480px;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  padding: 24px;
+  box-shadow: var(--shadow-pop);
+}
+
+/* ---------- tela aberta (acesso, configuração, questionário) ---------- */
+.tela-aberta {
+  min-height: 100svh;
+  padding: 48px 20px 72px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  background:
+    radial-gradient(1200px 420px at 50% -120px, #ffffff 0%, rgba(255, 255, 255, 0) 70%),
+    var(--ground);
+}
+.cartao-adm {
+  width: 100%;
+  max-width: 440px;
+  padding: 30px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-pop);
+}
+.cartao-marca {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+.cartao-marca .marca-nome {
+  color: var(--text);
+}
+.cartao-marca .marca-sub {
+  color: var(--muted);
+}
+@media (max-width: 480px) {
+  .tela-aberta {
+    padding: 24px 16px 48px;
+  }
+  .cartao-adm {
+    padding: 24px 20px;
+  }
+}
+
+/* impressão: apenas o relatório */
+@media print {
+  .sidebar,
+  .barra-topo,
+  .nav-inferior,
+  .nao-imprime {
+    display: none !important;
+  }
+  .app {
+    grid-template-columns: 1fr;
+  }
+  .canvas {
+    padding: 0;
+  }
+  body {
+    background: #fff;
+  }
+  .painel {
+    box-shadow: none;
+  }
+}

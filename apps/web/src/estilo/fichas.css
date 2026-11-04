@@ -1,0 +1,413 @@
+/* Fichas de campo: papel de planilha com índice na margem, como um caderno de campo. */
+
+.ficha-grade {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.indice-fichas {
+  position: sticky;
+  top: 20px;
+}
+.indice-fichas ol {
+  display: grid;
+  gap: 1px;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+.indice-fichas a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: var(--fs-small);
+}
+.indice-fichas a .num {
+  color: var(--faint);
+  min-width: 1.2em;
+}
+.indice-fichas a:hover {
+  color: var(--text);
+}
+.indice-fichas a[aria-current="page"] {
+  color: var(--text);
+  font-weight: 700;
+  box-shadow: inset 4px 0 0 var(--accent);
+  padding-left: 12px;
+  background: var(--surface-soft);
+  border-radius: 6px;
+}
+.folha {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 28px 32px 32px;
+  min-width: 0;
+}
+.folha-cab {
+  padding-bottom: 18px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.folha-cab .titulo {
+  font-size: 24px;
+  margin-top: 4px;
+}
+
+.campos-ficha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  margin: 0;
+}
+.campos-ficha.dois {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.campos-ficha .largo {
+  grid-column: 1 / -1;
+}
+.campos-ficha dt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: var(--fs-small);
+}
+.campos-ficha dd {
+  margin: 0;
+}
+
+.tabela-ficha th {
+  padding: 0 6px;
+  height: 38px;
+  vertical-align: bottom;
+}
+.tabela-ficha td {
+  padding: 5px 4px;
+}
+.tabela-ficha .input {
+  min-height: 36px;
+  border-color: transparent;
+  background: transparent;
+}
+.tabela-ficha .input:hover {
+  border-color: var(--border);
+}
+.tabela-ficha .input:focus {
+  background: var(--surface);
+  border-color: var(--focus);
+}
+.tabela-ficha .input::placeholder {
+  color: var(--faint);
+  font-style: italic;
+}
+.tabela-ficha .nota {
+  width: 58px;
+  min-height: 34px;
+  padding: 0 4px;
+  border-color: var(--border);
+  background: var(--surface);
+}
+.tabela-ficha tr + tr td {
+  border-top: 1px solid var(--rule);
+}
+
+.ferramentas-ficha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ferramentas-ficha .btn {
+  max-width: 100%;
+  height: auto;
+  min-height: 44px;
+  padding: 8px 16px;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.35;
+}
+.fluxo,
+.sistema {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  margin-bottom: 16px;
+}
+.fluxo-cab {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.pdca {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.roteiro {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.roteiro-item {
+  background: var(--surface);
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+.roteiro-item strong {
+  font-weight: 500;
+}
+
+/* matrizes */
+.porter-grade {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+}
+.porter-col,
+.swot-col {
+  min-width: 0;
+}
+.porter-col h3,
+.swot-col h3 {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+.porter-col .micro {
+  min-height: 2.6em;
+  margin-bottom: 8px;
+}
+.lista-matriz {
+  display: grid;
+  gap: 8px;
+}
+.linha-matriz {
+  display: grid;
+  gap: 4px;
+}
+.linha-matriz .input {
+  font-size: var(--fs-small);
+}
+.linha-matriz .btn {
+  justify-self: start;
+  min-height: 44px;
+  height: auto;
+  padding: 0 12px;
+  font-size: var(--fs-small);
+}
+.swot-grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.swot-col {
+  background: var(--surface);
+  padding: 14px;
+}
+.swot-problemas {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-control);
+  list-style: none;
+}
+.painel .legenda + .tabela-wrap {
+  margin-top: 12px;
+}
+.guia-lista {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  padding: 0;
+  list-style: none;
+}
+.guia-lista h3 {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+/* ajustes */
+.form-ajustes {
+  display: grid;
+  gap: 0;
+}
+.ajuste {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 32px;
+  padding: 26px 0;
+  border-top: 1px solid var(--border);
+}
+.ajuste:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.ajuste-painel {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 18px;
+}
+.rodape-form {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 1100px) {
+  .porter-grade {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .guia-lista {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 860px) {
+  .ficha-grade {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .indice-fichas {
+    position: static;
+  }
+  .indice-fichas ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    border: 0;
+  }
+  .indice-fichas a {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    min-height: 44px;
+    min-width: 44px;
+    justify-content: center;
+    padding: 3px 12px;
+    font-size: var(--fs-small);
+  }
+  .indice-fichas a .rotulo-ficha {
+    display: none;
+  }
+  .indice-fichas a .num {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .indice-fichas a[aria-current="page"] .num {
+    color: var(--accent-strong);
+  }
+  .indice-fichas .indice-nota {
+    display: none;
+  }
+  .indice-fichas a[aria-current="page"] {
+    background: var(--active);
+    box-shadow: none;
+    padding-left: 10px;
+  }
+  .folha {
+    padding: 18px 16px 22px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: none;
+  }
+  .campos-ficha.dois,
+  .pdca,
+  .swot-grade,
+  .roteiro,
+  .guia-lista {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .porter-grade {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ajuste {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .tabela-ficha .input {
+    min-height: 40px;
+  }
+  .tabela-ficha {
+    min-width: 520px;
+  }
+  .tabela-ficha th {
+    white-space: normal;
+    font-size: var(--fs-micro);
+    padding: 0 4px;
+    min-width: 74px;
+  }
+  .tabela-ficha th:first-child {
+    min-width: 24px;
+  }
+  .tabela-ficha th:last-child {
+    min-width: 76px;
+  }
+  .fluxo,
+  .sistema {
+    padding: 12px;
+  }
+  .ferramentas-ficha .btn {
+    width: 100%;
+    text-align: left;
+  }
+  .fluxo-cab .input {
+    width: 100%;
+  }
+  .fluxo-cab .btn {
+    width: 100%;
+  }
+  .fluxo-cab {
+    flex-direction: column;
+  }
+  .form-ajustes .grade-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* aviso de gravação em tela estreita: faixa acima da navegação inferior,
+   fora do fluxo, para não mexer no conteúdo enquanto se digita */
+.barra-selo {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(64px + env(safe-area-inset-bottom));
+  z-index: 16;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.barra-selo:not(:empty) {
+  padding: 6px 10px;
+  background: var(--text);
+  color: var(--surface);
+  border-radius: var(--radius-control);
+  font-size: var(--fs-small);
+  width: max-content;
+  margin: 0 auto;
+}
+
+/* o quadro da ficha estica a coluna do texto, não o índice */
+.ficha-grade > .folha {
+  max-width: 900px;
+}

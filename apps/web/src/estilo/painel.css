@@ -1,0 +1,288 @@
+/* Painel, coletas e listas laterais: cartões, cabeçalhos de seção com barra laranja,
+   números grandes e códigos de estado em pastilha. */
+
+/* título de seção fora do cartão: barra laranja + texto escuro grande */
+.titulo-secao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 28px 0 14px;
+  font: 700 23px/1.25 var(--font);
+  color: var(--text);
+}
+.titulo-secao::before {
+  content: "";
+  width: 5px;
+  height: 26px;
+  border-radius: 3px;
+  background: var(--accent);
+  flex: none;
+}
+.titulo-secao:first-of-type {
+  margin-top: 6px;
+}
+.selo-demo {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-strong);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* cabeçalho dentro do cartão */
+.secao-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.secao-cab .secao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.secao-cab .secao::before {
+  content: "";
+  width: 4px;
+  height: 20px;
+  border-radius: 2px;
+  background: var(--accent);
+  flex: none;
+}
+.secao-cab .texto-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* indicadores: ícone em círculo, número grande */
+.kpi .kpi-value {
+  margin: 0;
+}
+.kpi-icone {
+  width: 56px;
+  height: 56px;
+}
+
+/* ícone menor nas linhas de tabela */
+.icone-circulo.pequeno {
+  width: 30px;
+  height: 30px;
+}
+.celula-publico {
+  font-weight: 600;
+  white-space: nowrap;
+  background: transparent;
+  border-bottom: 1px solid var(--rule);
+  height: auto;
+}
+.celula-publico .icone-circulo {
+  display: inline-grid;
+  vertical-align: middle;
+  margin-right: 10px;
+}
+
+/* coleta */
+.coleta > header {
+  align-items: center;
+}
+.coleta-titulo .secao {
+  font-size: var(--fs-section);
+}
+.coleta-numeros {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.coleta-total {
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}
+.coleta.demo {
+  background: var(--surface-soft);
+  box-shadow: none;
+  border-style: dashed;
+}
+.coleta.demo .icone-circulo {
+  background: var(--raised);
+  color: var(--text);
+}
+
+/* links e confirmação em linha */
+.painel-link {
+  gap: 12px;
+}
+.painel-link .micro {
+  font-weight: 600;
+  color: var(--muted);
+}
+.confirmar {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--negative-bg);
+  border-radius: var(--radius-control);
+  background: var(--negative-bg);
+}
+.confirmar-botoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* cartão informativo com ícone à esquerda */
+.painel-info {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18px;
+  align-items: flex-start;
+}
+.painel-info-icone {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  color: var(--navy);
+  flex: none;
+}
+.painel-info-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.painel-info-cab .texto-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.painel-info + .titulo-secao,
+.painel-info {
+  margin-top: 18px;
+}
+/* cartão de coleta: o link fica entre os campos e a ação principal */
+.coleta .painel-link {
+  margin-top: 16px;
+}
+.coleta > .btn.primario,
+.coleta > .btn.perigo,
+.coleta > .confirmar {
+  margin-top: 16px;
+}
+.coleta > .micro {
+  display: block;
+  margin-top: 8px;
+}
+
+/* listas de atividade no lateral */
+.lista-atividade {
+  display: grid;
+}
+.lista-atividade li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 7px 0;
+  border-top: 1px solid var(--rule);
+  font-size: var(--fs-small);
+}
+.lista-atividade li:first-child {
+  border-top: 0;
+}
+.lista-atividade .ponto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+.etiqueta {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--positive-bg);
+  color: var(--positive);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* faixa de confirmação de gravação */
+.aviso-salvo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--positive-bg);
+  color: var(--positive);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+/* resultados */
+.amostra-cab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.amostra-cab .secao {
+  font-size: var(--fs-body);
+}
+.contagem-tema {
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent-strong);
+  font-size: var(--fs-small);
+  font-weight: 700;
+}
+.painel-dica {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  box-shadow: none;
+}
+.painel-dica-cab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.painel-dica .icone-circulo.claro {
+  background: #ffffff;
+}
+
+@media (max-width: 860px) {
+  .titulo-secao {
+    font-size: 20px;
+  }
+  .painel-info {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .painel-info-icone {
+    width: 42px;
+    height: 42px;
+  }
+}

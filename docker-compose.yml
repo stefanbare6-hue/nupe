@@ -1,0 +1,15 @@
+# Uso: docker compose up --build
+# A interface sobe em http://localhost:3333 e os dados ficam no volume "dados",
+# que sobrevive a reinícios e a novas imagens.
+services:
+  nupe:
+    build: .
+    ports:
+      - "3333:3333"
+    environment:
+      NUPE_SECRET: troque-esta-chave
+      NUPE_BEHIND_PROXY: "1"
+    volumes:
+      - dados:/dados
+volumes:
+  dados:

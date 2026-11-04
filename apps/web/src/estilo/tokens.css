@@ -1,0 +1,134 @@
+/* NUPE — tokens
+   Direção: "painel de campo" inspirado nas referências do estágio: barra lateral
+   azul-marinho sólida, cartões brancos com sombra suave, faixas claras de fundo e
+   laranja vivo só para ação e destaque de dado. Contraste conferido: corpo 16px,
+   texto secundário acima de 4.5:1 e alvos de toque com 44px no telefone. */
+
+:root {
+  /* ---- paleta ---- */
+  --ground: #f6f4ef;            /* areia clara, fundo das telas */
+  --ground-2: #efece4;          /* faixa de fundo um degrau abaixo */
+  --surface: #ffffff;           /* cartão */
+  --surface-soft: #faf9f5;      /* bloco interno (link, linha em foco) */
+  --raised: #f1eee7;            /* controle pressionado, linha zebrada */
+  --active: #fdeadf;            /* item ativo claro (laranja diluído) */
+
+  --border: #e4dfd4;            /* borda de cartão */
+  --rule: #eeeae1;              /* linha entre itens */
+  --control: #928b7c;           /* borda de campo, 3.4:1 sobre branco (WCAG 1.4.11) */
+
+  --text: #152a4b;              /* azul-marinho do texto */
+  --muted: #4c5766;             /* secundário, 7.3:1 sobre branco */
+  --faint: #5f6877;             /* metadados, 5.8:1 sobre branco */
+
+  --navy: #172b4d;              /* barra lateral */
+  --navy-deep: #12213c;         /* topo da barra lateral e rodapé */
+  --navy-ink: #c8d4e6;          /* texto sobre a barra lateral, 8:1 sobre o azul */
+  --navy-ink-soft: #9dabc2;     /* texto secundário da barra, 5.1:1 */
+
+  --accent: #b34d17;            /* laranja de ação, 5.3:1 sobre branco */
+  --accent-strong: #8a3d0c;     /* laranja escuro para hover e texto sobre claro */
+  --accent-bg: #fdf1e8;         /* fundo de aviso/realce em laranja */
+  --accent-border: #f0cdb5;
+
+  --data: #b34d17;              /* barra do dado */
+  --data-soft: #f4d9c8;
+
+  --positive: #1f6b46;
+  --positive-bg: #e7f3ec;
+  --negative: #a12b21;
+  --negative-bg: #fbecea;
+  --warning: #7a4a00;
+  --warning-bg: #fdf6e8;
+  --warning-border: #e8d3a3;
+  --focus: #1d4ed8;             /* foco visível azul, distinto do laranja */
+
+  /* ---- tipografia ---- */
+  --font: "Source Sans 3", "Source Sans Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Grassera", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --fs-display: clamp(30px, 3.4vw, 40px);
+  --fs-title: 26px;
+  --fs-section: 19px;
+  --fs-kpi: 34px;
+  --fs-body: 16px;
+  --fs-small: 15px;
+  --fs-micro: 13px;
+  --lh-body: 1.55;
+
+  /* ---- medidas ---- */
+  --sidebar-width: 252px;
+  --pad: 32px;
+  --gap: 18px;
+  --card-pad: 22px;
+  --radius-card: 14px;
+  --radius-control: 10px;
+  --control-height: 42px;
+  --row-height: 48px;
+  --nav-row: 46px;
+
+  --shadow-card: 0 1px 2px rgba(21, 42, 75, 0.06), 0 8px 24px -12px rgba(21, 42, 75, 0.16);
+  --shadow-pop: 0 2px 6px rgba(21, 42, 75, 0.08), 0 18px 40px -18px rgba(21, 42, 75, 0.28);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-press: 120ms;
+  --t-hover: 160ms;
+  --t-ui: 220ms;
+}
+
+/* controle de tamanho do texto: a classe vive em <html>, escolhida no menu */
+html[data-texto="grande"] {
+  --fs-body: 18px;
+  --fs-small: 16px;
+  --fs-micro: 14px;
+  --fs-section: 20px;
+}
+html[data-texto="maior"] {
+  --fs-body: 20px;
+  --fs-small: 18px;
+  --fs-micro: 15px;
+  --fs-section: 22px;
+  --fs-kpi: 38px;
+}
+
+/* Grassera é opcional: se o arquivo não existir, a pilha do sistema assume e o
+   navegador não tenta baixar um formato inválido. */
+@font-face {
+  font-family: "Grassera";
+  src: local("Iowan Old Style"), local("Palatino Linotype"), local("Palatino"), local("Georgia");
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Source Sans 3";
+  src: url("/fontes/source-sans-3.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Source Sans 3";
+  src: url("/fontes/source-sans-3-ext.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@media (max-width: 860px) {
+  :root {
+    --pad: 18px;
+    --fs-display: 30px;
+    --fs-kpi: 28px;
+    --gap: 14px;
+    --card-pad: 18px;
+    --control-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation: none !important;
+  }
+}

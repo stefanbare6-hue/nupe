@@ -1,0 +1,9 @@
+node_modules
+dist
+*.tsbuildinfo
+data
+capturas
+.git
+.agents
+.claude
+.taste-skill
