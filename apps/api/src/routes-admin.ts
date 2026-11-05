@@ -89,6 +89,19 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
     return { name: a.name, email: a.email, displayName: store.data.settings.displayName, settings: store.data.settings };
   });
 
+  // ── Backups diários ───────────────────────────────────────────────
+  /** Lista as cópias guardadas ao lado do arquivo de dados. */
+  app.get("/api/backups", { preHandler: guard }, async () => ({ backups: store.listarBackups() }));
+
+  /** Baixa uma cópia no formato do arquivo de dados, para guardar fora do servidor. */
+  app.get<{ Params: { nome: string } }>("/api/backups/:nome", { preHandler: guard }, async (req, reply) => {
+    const conteudo = store.lerBackup(req.params.nome);
+    if (conteudo === null) return reply.code(404).send({ error: "Backup não encontrado." });
+    reply.header("content-type", "application/json; charset=utf-8");
+    reply.header("content-disposition", `attachment; filename="${req.params.nome}"`);
+    return conteudo;
+  });
+
   // ── Painel (contagens por público) ────────────────────────────────
   app.get("/api/dashboard", { preHandler: guard }, async () => {
     const counts = AUDIENCES.map((audience) => {

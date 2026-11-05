@@ -19,9 +19,42 @@ describe("armazenamento em arquivo", () => {
       await store.save();
     }
     await store.close();
-    expect(readdirSync(join(dir, "sub"))).toEqual(["dados.json"]);
+    // A pasta de backups é a única coisa além do arquivo principal.
+    expect(readdirSync(join(dir, "sub")).sort()).toEqual(["backups", "dados.json"]);
     const lido = JSON.parse(readFileSync(arquivo, "utf8"));
     expect(lido.settings.displayName).toBe("versão 4");
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("mantém uma cópia por dia, feita na abertura", async () => {
+    const dir = pasta();
+    const arquivo = join(dir, "dados.json");
+    const primeiro = await Store.open(arquivo);
+    primeiro.data.settings.displayName = "retrato do dia";
+    await primeiro.save();
+    await primeiro.close();
+    const pastaBackup = join(dir, "backups");
+    const copias = readdirSync(pastaBackup);
+    expect(copias).toHaveLength(1);
+    expect(copias[0]).toMatch(/^nupe-\d{4}-\d{2}-\d{2}\.json$/);
+    // A cópia é a foto da abertura do dia; o arquivo principal tem a versão mais nova.
+    expect(JSON.parse(readFileSync(arquivo, "utf8")).settings.displayName).toBe("retrato do dia");
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("não sobrescreve o backup do dia numa segunda abertura", async () => {
+    const dir = pasta();
+    const arquivo = join(dir, "dados.json");
+    const primeiro = await Store.open(arquivo);
+    await primeiro.close();
+    const segunda = await Store.open(arquivo);
+    segunda.data.settings.displayName = "mudou depois";
+    await segunda.save();
+    await segunda.close();
+    const copias = readdirSync(join(dir, "backups"));
+    expect(copias).toHaveLength(1);
+    expect(JSON.parse(readFileSync(join(dir, "backups", copias[0]!), "utf8")).settings.displayName).not.toBe("mudou depois");
+    expect(JSON.parse(readFileSync(arquivo, "utf8")).settings.displayName).toBe("mudou depois");
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -79,7 +112,8 @@ describe("armazenamento em arquivo", () => {
     mkdirSync(arquivo);
     store.note("teste", "falha");
     await expect(store.save()).rejects.toBeTruthy();
-    expect(readdirSync(dir)).toEqual(["dados.json"]);
+    // Só o arquivo (agora uma pasta) e a pasta de backups: nenhum .tmp solto.
+    expect(readdirSync(dir).sort()).toEqual(["backups", "dados.json"]);
     await expect(store.save()).resolves.toBeUndefined();
     await store.close();
     rmSync(dir, { recursive: true, force: true });

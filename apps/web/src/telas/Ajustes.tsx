@@ -12,6 +12,8 @@ export function Ajustes({ me }: { me: MeView }) {
   const [form, setForm] = useState<Settings | null>(null);
   const [texto, setTexto] = useState("");
   const [erroSalvar, setErroSalvar] = useState("");
+  const [listaBackups, setListaBackups] = useState<{ nome: string; dia: string; bytes: number }[]>([]);
+  const [faseBackups, setFaseBackups] = useState<"carregando" | "pronto">("carregando");
   const formRef = useRef<Settings | null>(null);
   const original = useRef<Settings | null>(null);
   formRef.current = form;
@@ -29,6 +31,24 @@ export function Ajustes({ me }: { me: MeView }) {
     return () => {
       sair();
       marcarPendente(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    let vivo = true;
+    api
+      .get<{ backups: { nome: string; dia: string; bytes: number }[] }>("/api/backups")
+      .then((r) => {
+        if (vivo) setListaBackups(r.backups);
+      })
+      .catch(() => {
+        // Sem a lista, a seção só não mostra cópias; o resto da tela funciona.
+      })
+      .finally(() => {
+        if (vivo) setFaseBackups("pronto");
+      });
+    return () => {
+      vivo = false;
     };
   }, []);
 
@@ -157,6 +177,31 @@ export function Ajustes({ me }: { me: MeView }) {
             Sair
           </button>
         </div>
+      </section>
+
+      <section className="painel" style={{ marginTop: 16 }}>
+        <header>
+          <h2 className="secao">Backups automáticos</h2>
+        </header>
+        <p className="legenda" style={{ marginBottom: 12 }}>
+          O sistema guarda uma cópia dos dados por dia, com as últimas sete. A cópia fica no mesmo servidor e serve para voltar atrás
+          depois de um erro. Baixe uma de vez em quando e guarde fora do servidor — é o que protege o trabalho se o disco da
+          hospedagem se perder.
+        </p>
+        {faseBackups === "carregando" ? <p className="meta">Verificando cópias…</p> : null}
+        {listaBackups.length === 0 && faseBackups === "pronto" ? (
+          <p className="meta">Nenhuma cópia ainda. A primeira é criada assim que houver uma alteração.</p>
+        ) : null}
+        {listaBackups.map((b) => (
+          <div className="linha" key={b.nome}>
+            <span>
+              {b.dia.split("-").reverse().join("/")} <span className="meta">· {Math.max(1, Math.round(b.bytes / 1024))} KB</span>
+            </span>
+            <a className="btn" href={`/api/backups/${b.nome}`} download>
+              Baixar
+            </a>
+          </div>
+        ))}
       </section>
 
       <section className="painel" style={{ marginTop: 16 }}>

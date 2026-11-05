@@ -4,7 +4,7 @@
  * Para volume maior, troque o `load`/`flush` por um driver SQL.
  */
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Audience, Collection, DiaryRow, Entry, Flow, GlossaryRow, Improvement, Matrices, OpenResponse, SystemRecord, Theme } from "@nupe/core";
 import { SUGGESTED_THEMES } from "@nupe/core";
@@ -188,10 +188,12 @@ export class Store {
   private ultimaGravacao = 0;
   /** Falso enquanto o disco se mostrou inutilizável; volta a tentar depois. */
   private podeGravar = false;
+  private readonly pastaBackup: string;
 
   private constructor(path: string, data: DB) {
     this.path = path;
     this.data = data;
+    this.pastaBackup = join(dirname(path), "backups");
   }
 
   /** Se o disco aceita gravação. A tela e o log usam para avisar sobre dados voláteis. */
@@ -249,6 +251,70 @@ export class Store {
       // Gravação pela metade não pode deixar lixo ao lado do arquivo bom.
       await unlink(tmp).catch(() => {});
       throw e;
+    }
+    await this.backupDoDia();
+  }
+
+  /**
+   * Cópia diária ao lado do arquivo principal. Uma por dia, as últimas sete.
+   * A cópia é do mesmo disco, então protege contra gravação ruim e contra
+   * alguém apagar a coleta por engano — não contra perder o volume inteiro.
+   * Falha aqui nunca derruba a gravação principal, que já terminou.
+   */
+  private async backupDoDia(): Promise<void> {
+    if (this.path === ":memory:") return;
+    const hoje = new Date().toISOString().slice(0, 10);
+    const alvo = join(this.pastaBackup, `nupe-${hoje}.json`);
+    if (existsSync(alvo)) return;
+    try {
+      await mkdir(this.pastaBackup, { recursive: true });
+      await writeFile(alvo, JSON.stringify(this.data), "utf8");
+      this.limparBackupsAntigos(7);
+    } catch {
+      // Disco cheio ou somente leitura: a gravação já foi feita, o backup é extra.
+    }
+  }
+
+  private limparBackupsAntigos(quantos: number): void {
+    try {
+      const arquivos = readdirSync(this.pastaBackup)
+        .filter((n) => /^nupe-\d{4}-\d{2}-\d{2}\.json$/.test(n))
+        .sort()
+        .reverse();
+      for (const velho of arquivos.slice(quantos)) unlink(join(this.pastaBackup, velho)).catch(() => {});
+    } catch {
+      // Sem pasta de backup legível não há o que limpar.
+    }
+  }
+
+  /** Cópias disponíveis, da mais nova para a mais antiga. */
+  listarBackups(): { nome: string; dia: string; bytes: number }[] {
+    try {
+      return readdirSync(this.pastaBackup)
+        .filter((n) => /^nupe-\d{4}-\d{2}-\d{2}\.json$/.test(n))
+        .sort()
+        .reverse()
+        .map((nome) => ({
+          nome,
+          dia: nome.slice(5, 15),
+          bytes: statSync(join(this.pastaBackup, nome)).size,
+        }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Conteúdo de uma cópia, ou null se o nome não for um backup válido. O nome
+   * vem da URL, então só aceitamos exatamente o padrão gerado aqui: é o que
+   * impede alguém de pedir ../nupe.json ou outro arquivo do disco.
+   */
+  lerBackup(nome: string): string | null {
+    if (!/^nupe-\d{4}-\d{2}-\d{2}\.json$/.test(nome)) return null;
+    try {
+      return readFileSync(join(this.pastaBackup, nome), "utf8");
+    } catch {
+      return null;
     }
   }
 

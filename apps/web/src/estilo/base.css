@@ -1101,10 +1101,19 @@ textarea.input {
   padding: 0;
   background: rgba(9, 20, 40, 0.35);
   cursor: pointer;
+  /* No celular o fundo cobre só a faixa à direita do menu: a barra lateral
+     fica em z-index 30 e herda o contexto do cabeçalho, então um fundo de
+     tela cheia captura os toques e nenhum link do menu responde. */
+  pointer-events: none;
+}
+@media (max-width: 860px) {
+  .barra-fundo {
+    pointer-events: auto;
+    left: min(86vw, 320px);
+  }
 }
 /* Camadas do menu no celular:
-   - o fundo escurecido fica abaixo da barra lateral (30) e do menu do
-     questionário (28), então os links continuam clicáveis;
+   - o fundo escurecido cobre apenas o conteúdo, à direita do painel;
    - a linha da barra (2) fica acima de tudo, para o botão Fechar responder. */
 .app .barra-topo {
   z-index: 31;
@@ -1151,7 +1160,10 @@ textarea.input {
   .sidebar {
     position: fixed;
     inset: 58px 0 0;
-    width: 100%;
+    /* Deixa uma faixa do conteúdo visível à direita: dá o efeito de gaveta e
+       reserva a área onde o toque no fundo fecha o menu. */
+    width: min(86vw, 320px);
+    max-width: calc(100% - 56px);
     height: calc(100% - 58px);
     z-index: 30;
     transform: translateX(-100%);
