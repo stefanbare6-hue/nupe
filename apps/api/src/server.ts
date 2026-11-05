@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { createServer, request as httpRequest } from "node:http";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Store } from "./db";
@@ -54,3 +55,31 @@ await app.listen({ port: PORT, host: HOST });
 // O log precisa dizer em que porta e em que arquivo o app ficou: é por essas
 // duas linhas que se descobre um domínio apontando para a porta errada.
 app.log.info({ porta: PORT, host: HOST, dataPath: DATA_PATH, gravavel: store.gravaNoDisco }, "NUPE API pronta");
+
+// A hospedagem pode injetar PORT com um valor diferente do que o domínio
+// público usa. Em vez de depender de as duas pontas baterem à mão, o app
+// também atende na porta comum do domínio e repassa tudo para a principal.
+// Acesso local não passa por aqui: é só para o proxy da hospedagem.
+const PORTA_EXTRA = 3333;
+if (PORT !== PORTA_EXTRA && !process.env.NUPE_SEM_PORTA_EXTRA) {
+  const ponte = createServer((req, res) => {
+    const repasse = httpRequest(
+      { host: "127.0.0.1", port: PORT, method: req.method, path: req.url, headers: req.headers },
+      (resposta) => {
+        res.writeHead(resposta.statusCode ?? 502, resposta.headers);
+        resposta.pipe(res);
+      },
+    );
+    repasse.on("error", () => {
+      res.writeHead(502, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "Servidor indisponível." }));
+    });
+    req.pipe(repasse);
+  });
+  ponte.on("error", (e) => {
+    app.log.info({ porta: PORTA_EXTRA, erro: e.message }, "Porta extra não aberta");
+  });
+  ponte.listen(PORTA_EXTRA, HOST, () => {
+    app.log.info({ porta: PORTA_EXTRA }, "NUPE também atende nesta porta");
+  });
+}
