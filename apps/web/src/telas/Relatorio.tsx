@@ -34,7 +34,7 @@ export function Relatorio() {
     setAviso("");
     try {
       await api.post("/api/demo/clear", {});
-      setAviso("Dados fictícios removidos. O relatório foi recalculado sem eles.");
+      setAviso("Dados fictícios removidos. As fichas e as respostas reais não foram alteradas.");
       await rel.recarregar();
     } catch (e) {
       setAviso(e instanceof ApiError ? e.message : "Não foi possível remover os dados fictícios.");
@@ -166,7 +166,8 @@ export function Relatorio() {
         <div className="duas-colunas">
           <div>
             <p className="legenda">
-              Se houver dados fictícios no sistema, eles aparecem aqui e nas contagens. Remova antes de entregar o relatório.
+              Se a demonstração estiver carregada, as respostas fictícias entram no relatório e nas contagens. Este botão remove
+              só elas; as fichas e as respostas reais ficam como estão.
             </p>
             <button type="button" className="btn perigo" style={{ marginTop: 10 }} disabled={ocupado} onClick={() => void removerDemo()}>
               Remover dados fictícios

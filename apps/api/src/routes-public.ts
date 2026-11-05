@@ -11,6 +11,7 @@ import {
 } from "@nupe/core";
 import type { Store } from "./db";
 import { rateLimiter } from "./auth";
+import { timingSafeEqual } from "node:crypto";
 
 /** Hash opaco do par sessionId+token; não permite recuperar o endereço. */
 async function anonymousHmac(secret: string, value: string): Promise<string> {
@@ -39,21 +40,35 @@ async function issueToken(
   sessionId: string,
 ): Promise<string> {
   const nonce = crypto.randomUUID();
-  const list = (store.data.contest[key] ??= []);
-  list.push({ sessionId, createdAt: nowIso() });
-  // Mantém curta a janela de contestação (24 h).
+  // A prova só tira do registro as sessões de mais de 24 h: quem respondeu
+  // aqui é o envio, não a abertura do questionário.
+  const list = store.data.contest[key] ?? [];
   const horizon = Date.now() - 24 * 3600_000;
   const fresh = list.filter((c) => new Date(c.createdAt).getTime() > horizon);
-  if (fresh.length !== list.length) store.data.contest[key] = fresh;
+  if (fresh.length !== list.length) {
+    store.data.contest[key] = fresh;
+    await store.save();
+  }
 
   const issued = Math.floor(Date.now() / 300_000);
   const { createHash } = await import("node:crypto");
   const proof = createHash("sha256").update(`${secret}|${key}|${sessionId}|${nonce}|${issued}`).digest("hex");
-  await store.save();
   return `${nonce}.${issued}.${proof}`;
 }
 
-async function verifyAntibotProof(secret: string, key: string, sessionId: string, proof: string): Promise<boolean> {
+/** Compara em tempo constante: a prova calculada nunca fica exposta a tentativa e erro. */
+function digestEqual(a: string, b: string): boolean {
+  const da = Buffer.from(a, "utf8");
+  const db = Buffer.from(b, "utf8");
+  return da.length === db.length && timingSafeEqual(da, db);
+}
+
+/** Hash com o qual o registro guarda a sessão anônima de um aparelho. */
+export async function sessionKey(secret: string, sessionId: string): Promise<string> {
+  return anonymousHmac(secret, sessionId);
+}
+
+export async function verifyAntibotProof(secret: string, key: string, sessionId: string, proof: string): Promise<boolean> {
   const parts = proof.split(".");
   if (parts.length !== 3) return false;
   const [nonce, issuedStr, given] = parts;
@@ -63,7 +78,11 @@ async function verifyAntibotProof(secret: string, key: string, sessionId: string
   if (issued !== now && issued !== now - 1) return false;
   const { createHash } = await import("node:crypto");
   const expected = createHash("sha256").update(`${secret}|${key}|${sessionId}|${nonce}|${issued}`).digest("hex");
-  return expected === given;
+  return digestEqual(expected, given!);
+}
+
+function collectionByPublicId(store: Store, publicId: string) {
+  return store.data.collections.find((x) => x.publicId === publicId);
 }
 
 export async function registerPublicRoutes(app: FastifyInstance, store: Store, secret: string) {
@@ -73,18 +92,30 @@ export async function registerPublicRoutes(app: FastifyInstance, store: Store, s
   const submitPorIp = rateLimiter(200, 10 * 60_000);
   const sessionLimit = rateLimiter(300, 10 * 60_000);
   const reciboLimit = rateLimiter(120, 10 * 60_000);
+  // Limite por endereço que a estagiária ajusta em Ajustes (envios por hora, 0 = desligado).
+  const porEndereco = rateLimiter(60, 60 * 60_000);
+  const enderecoBloqueado = (ip: string): boolean => {
+    const max = store.data.settings.rateLimitPerHour;
+    if (!max) return false;
+    porEndereco.ajustar(max);
+    return !porEndereco(ip);
+  };
 
   app.get("/api/public/health", async () => ({ ok: true, time: nowIso() }));
 
   app.get<{ Params: { id: string } }>("/api/public/surveys/:id", async (req) => {
-    const c = store.data.collections.find((x) => x.publicId === req.params.id);
+    const c = collectionByPublicId(store, req.params.id);
     // Conta abertura da página: apenas um contador por dia, sem identificador.
+    // A gravação sai só na primeira abertura do dia; somar no contador que já
+    // está em memória não precisa reescrever o arquivo inteiro a cada visita.
     if (c) {
       const today = nowIso().slice(0, 10);
       const v = store.data.visits.find((x) => x.date === today);
       if (v) v.count += 1;
-      else store.data.visits = [...store.data.visits, { date: today, count: 1 }].slice(-400);
-      await store.save();
+      else {
+        store.data.visits = [...store.data.visits, { date: today, count: 1 }].slice(-400);
+        await store.save();
+      }
     }
     if (!c || c.status === "rascunho") return { survey: null };
     const survey = SURVEYS[c.audience];
@@ -112,7 +143,10 @@ export async function registerPublicRoutes(app: FastifyInstance, store: Store, s
     "/api/public/surveys/:id/responses",
     async (req, reply) => {
       if (!submitPorIp(req.ip)) return reply.code(429).send({ error: "Muitos envios deste endereço. Aguarde alguns minutos." });
-      const c = store.data.collections.find((x) => x.publicId === req.params.id);
+      if (enderecoBloqueado(req.ip)) {
+        return reply.code(429).send({ error: "Muitos envios desta rede. Aguarde uma hora ou peça ajuda ao responsável pelo NUPE." });
+      }
+      const c = collectionByPublicId(store, req.params.id);
       if (!c) return reply.code(404).send({ error: "Questionário indisponível." });
       if (collectionAvailability(c) !== "aberta") {
         return reply.code(409).send({ error: "Esta coleta está encerrada." });
@@ -121,13 +155,15 @@ export async function registerPublicRoutes(app: FastifyInstance, store: Store, s
       if (!sessionId || sessionId.length < 20 || sessionId.length > 80) {
         return reply.code(400).send({ error: "Sessão inválida. Recarregue a página." });
       }
-      if (!submitPorAparelho(sessionId)) return reply.code(429).send({ error: "Muitos envios deste dispositivo. Aguarde alguns minutos." });
+      // O aparelho é identificado pelo hash: cada navegador responde uma vez a
+      // cada coleta. O conferente antes conta tentativas; aqui é a regra.
+      const answeredSession = await sessionKey(secret, sessionId);
+      if (!submitPorAparelho(answeredSession)) return reply.code(429).send({ error: "Muitos envios deste dispositivo. Aguarde alguns minutos." });
       const proof = typeof req.body?.proof === "string" ? req.body.proof : "";
       if (!(await verifyAntibotProof(secret, c.id, sessionId, proof))) {
         return reply.code(400).send({ error: "Verificação de envio expirada. Recarregue a página." });
       }
-      const answeredSession = await anonymousHmac(secret, sessionId);
-      const already = (store.data.contest[c.id] ?? []).find((x) => x.sessionId === answeredSession);
+      const already = (store.data.contest[c.id] ?? []).some((x) => x.sessionId === answeredSession);
       if (already) return reply.code(409).send({ error: "Este dispositivo já enviou uma resposta a este questionário." });
 
       const survey = SURVEYS[c.audience];
@@ -166,9 +202,10 @@ export async function registerPublicRoutes(app: FastifyInstance, store: Store, s
         });
       }
 
-      // Marca a sessão como respondida (hash opaco: não permite reverter ao IP).
+      // Marca o aparelho como respondido, guardando o hash da sessão (nunca o
+      // identificador): é essa marca que o recibo e o segundo envio procuram.
       const list = store.data.contest[c.id] ?? [];
-      list.push({ sessionId: answeredSession, createdAt: submittedAt });
+      if (!list.some((x) => x.sessionId === answeredSession)) list.push({ sessionId: answeredSession, createdAt: submittedAt });
       store.data.contest[c.id] = list;
       await store.save();
       store.note("resposta recebida", c.audience);
@@ -196,20 +233,18 @@ export async function registerPublicRoutes(app: FastifyInstance, store: Store, s
     "/api/public/surveys/:id/recibo",
     async (req, reply) => {
       if (!reciboLimit(req.ip)) return reply.code(429).send({ error: "Muitas consultas. Aguarde alguns minutos." });
-      const c = store.data.collections.find((x) => x.publicId === req.params.id);
+      const c = collectionByPublicId(store, req.params.id);
       if (!c) return reply.code(404).send({ error: "Questionário indisponível." });
       const sessionId = typeof req.body?.sessionId === "string" ? req.body.sessionId : "";
-      const respondido = !!sessionId && sessionId.length >= 20 &&
-        (store.data.contest[c.id] ?? []).some((x) => x.sessionId === sessionId);
-      return { respondido };
+      if (!sessionId || sessionId.length < 20) return { respondido: false };
+      const sessaoHash = await sessionKey(secret, sessionId);
+      return { respondido: (store.data.contest[c.id] ?? []).some((x) => x.sessionId === sessaoHash) };
     },
   );
 }
 
-export async function issueAntibotToken(store: Store, secret: string, collectionId: string, sessionId: string) {
-  return issueToken(store, secret, collectionId, sessionId);
-}
-
-export { anonymousHmac };
-export { verifyAntibotProof };
-export const PUBLIC_AUDIENCES: Audience[] = ["docentes", "estudantes", "equipe"];
+export { anonymousHmac, collectionByPublicId };
+export { sessionKey as answeredBy };
+// Reexportar o alias de `issueToken` como const garante que o import agrupado
+// (`import { issueAntibotToken }`) continue chamável, inclusive no teste.
+export const issueAntibotToken = issueToken;

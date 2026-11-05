@@ -4,7 +4,7 @@
  * Para volume maior, troque o `load`/`flush` por um driver SQL.
  */
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Audience, Collection, DiaryRow, Entry, Flow, GlossaryRow, Improvement, Matrices, OpenResponse, SystemRecord, Theme } from "@nupe/core";
 import { SUGGESTED_THEMES } from "@nupe/core";
@@ -42,6 +42,10 @@ export interface ProcedureRecord {
   base: string;
   responsible: string;
   deadline: string;
+  /** Trecho normativo fixo, que a tela mostra sem edição. */
+  fixedBase?: boolean;
+  /** Aviso da planilha de origem ("confirmar"). */
+  note?: string;
 }
 
 export interface ImprovementRec extends Improvement {
@@ -217,6 +221,16 @@ export class Store {
       data = emptyDb();
     }
     ensureCollections(data);
+    // Arquivo temporário de uma gravação interrompida (queda de energia, processo
+    // encerrado) fica ao lado do arquivo bom e não serve para nada.
+    const pasta = dirname(path);
+    try {
+      for (const nome of readdirSync(pasta)) {
+        if (nome.endsWith(".tmp") && nome.startsWith(".")) unlink(join(pasta, nome)).catch(() => {});
+      }
+    } catch {
+      // Pasta ilegível: a gravação avisa mais tarde, se também falhar.
+    }
     return new Store(path, data);
   }
 

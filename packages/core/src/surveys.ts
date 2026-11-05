@@ -65,7 +65,7 @@ export const DOCENTES: Survey = {
         { code: "nenhum", label: "Nenhum" },
       ],
     }),
-    q("d2", 2, "multi", "Onde você costuma encontrar editais de extensão e pesquisa?", {
+    q("d2", 2, "multi", "Onde você encontra os editais de extensão e pesquisa?", {
       options: [
         { code: "site", label: "Site da UNEB" },
         { code: "grupos", label: "Grupos de mensagens" },

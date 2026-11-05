@@ -8,6 +8,7 @@
  *
  * A cópia é só das linhas que mudaram. Na ficha 1, só dos campos mexidos.
  */
+import { chaveCampo, chaveLinha, fichaDaChave } from "@nupe/core";
 import type { DB, VersaoFicha } from "./db";
 
 /** Quantas cópias de cada linha ficam guardadas. */
@@ -108,16 +109,6 @@ function swotItens(s: DB["matrices"]["swot"]): Array<{ id: string; item: unknown
   return out;
 }
 
-/** Chaves de versão e de histórico de uma linha. */
-export function chaveLinha(kind: string, id: string): string {
-  return `${kind}:linha:${id}`;
-}
-
-/** Chave de versão e de histórico de um campo sem lista de linhas (fichas 1 e 6). */
-export function chaveCampo(kind: string, campo: string): string {
-  return `${kind}:campo:${campo}`;
-}
-
 /** Campo da ficha 1, dentro do objeto `fields`. */
 function campoDaFicha1(database: DB, campo: string): string {
   return database.institution.fields?.[campo] ?? "";
@@ -146,14 +137,6 @@ function gravarFicha6(database: DB, campo: string, valor: string) {
   } else {
     database.improvement = { ...imp, fiveW2H: { ...imp.fiveW2H, [chave]: valor } };
   }
-}
-
-/** Nome da ficha dona de uma chave de campo ou de linha. */
-function fichaDaChave(chave: string): { kind: string; campo: string } | null {
-  const campo = /^(.+?):campo:(.+)$/.exec(chave);
-  if (campo && campo[1] && campo[2]) return { kind: campo[1], campo: campo[2] };
-  const linha = /^(.+?):linha:/.exec(chave);
-  return linha && linha[1] ? { kind: linha[1], campo: "" } : null;
 }
 
 function igual(a: unknown, b: unknown): boolean {

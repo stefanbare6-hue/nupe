@@ -7,3 +7,4 @@ export * from "./forms";
 export * from "./report-model";
 export * from "./report-export";
 export * from "./api-types";
+export * from "./fichas";

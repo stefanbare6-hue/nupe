@@ -64,13 +64,11 @@ export interface ReportView {
   report: import("@nupe/core").ReportModel;
 }
 
-export interface ThemeFull extends Theme {}
-
 export const carregar = {
   me: () => api.get<MeView>("/api/me"),
   dashboard: () => api.get<DashboardView>("/api/dashboard"),
   results: (audience: string) => api.get<ResultsView>(`/api/results/${audience}`),
   records: () => api.get<RecordsView>("/api/records"),
   report: () => api.get<ReportView>("/api/report"),
-  themes: () => api.get<{ themes: ThemeFull[] }>("/api/themes").catch(() => ({ themes: [] as ThemeFull[] })),
+  themes: () => api.get<{ themes: Theme[] }>("/api/themes").catch(() => ({ themes: [] as Theme[] })),
 };

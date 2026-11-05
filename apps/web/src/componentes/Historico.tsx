@@ -7,16 +7,11 @@
  * apagaria o que acabou de ser restaurado.
  */
 import { createContext, useContext } from "react";
+import { chaveCampo, chaveLinha } from "../lib/fichas";
 
-/** Chave de versão e de histórico de uma linha da ficha. Mesma regra do servidor. */
-export function chaveLinha(kind: string, id: string): string {
-  return `${kind}:linha:${id}`;
-}
-
-/** Chave de um campo da ficha 1. */
-export function chaveCampo(kind: string, campo: string): string {
-  return `${kind}:campo:${campo}`;
-}
+// As chaves vêm do módulo compartilhado; `Fichas.tsx` importa daqui por ser o
+// lugar do botão que as usa.
+export { chaveCampo, chaveLinha };
 
 /** O que a ficha oferece às linhas: pedir a volta atrás de uma linha gravada. */
 export interface Recuperar {

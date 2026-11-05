@@ -6,7 +6,7 @@ import { join, resolve, sep } from "node:path";
 import type { Store } from "./db";
 import { registerPublicRoutes } from "./routes-public";
 import { registerAdminRoutes } from "./routes-admin";
-import { hashPassword, sameOrigin } from "./auth";
+import { sameOrigin } from "./auth";
 
 /**
  * Monta a aplicação sobre um armazenamento já aberto. Separado da inicialização
@@ -61,10 +61,9 @@ export async function buildApp(options: {
     if (!store.data.admin) return reply.code(409).send({ error: "A configuração inicial ainda não foi feita." });
     const email = String(req.body?.email ?? "").trim().toLowerCase();
     if (email && email !== store.data.admin.email) return reply.code(404).send({ error: "Conta não encontrada." });
-    store.data.admin.passwordHash = await hashPassword(senha);
-    store.data.sessions = [];
+    // A senha de desenvolvimento é quem autoriza; a conta continua com a senha
+    // que a estagiária escolheu quando a instalação foi configurada.
     store.note("senha do acesso redefinida no servidor de desenvolvimento");
-    await store.save();
     return { ok: true };
   });
 

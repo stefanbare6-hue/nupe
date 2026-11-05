@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { publicoNaFrase, type Audience } from "@nupe/core";
-import { carregar, type ResultsView, type ThemeFull } from "../lib/dados";
+import { publicoNaFrase, type Audience, type Theme } from "@nupe/core";
+import { carregar, type ResultsView } from "../lib/dados";
 import { api, ApiError } from "../lib/http";
 import { useDados } from "../lib/useDados";
 import { numero, rotuloPublico } from "../lib/formato";
@@ -14,13 +14,13 @@ const PUBLICOS: Audience[] = ["estudantes", "docentes", "equipe"];
 export function Resultados({ audienciaInicial = "estudantes" }: { audienciaInicial?: string }) {
   const [publico, setPublico] = useState<Audience>((PUBLICOS as string[]).includes(audienciaInicial) ? (audienciaInicial as Audience) : "estudantes");
   const resultados = useDados<ResultsView>(() => carregar.results(publico), [publico]);
-  const totais = resultados.dados?.totals ?? {};
-  const temas = useDados<{ themes: ThemeFull[] }>(carregar.themes);
+  const temas = useDados<{ themes: Theme[] }>(carregar.themes);
   const [salvandoTema, setSalvandoTema] = useState<string | null>(null);
   const [erroTema, setErroTema] = useState("");
 
-  const total = resultados.dados?.summary.total ?? totais[publico] ?? 0;
-  const valoresTotais = { ...totais, ...(resultados.dados?.totals ?? {}), [publico]: total };
+  // Total de cada público: o da aba aberta vem da contagem de agora, que é a
+  // mais recente; os das outras abas vêm da última consulta.
+  const valoresTotais = { ...(resultados.dados?.totals ?? {}), [publico]: resultados.dados?.summary.total ?? resultados.dados?.totals?.[publico] ?? 0 };
   // Público que já tem respostas, para oferecer o atalho quando a aba aberta está vazia.
   const comDados = PUBLICOS.find((p) => p !== publico && (valoresTotais[p] ?? 0) > 0);
 
@@ -201,7 +201,7 @@ function RespostasAbertas({
   salvando,
 }: {
   respostas: ResultsView["openResponses"];
-  temas: ThemeFull[];
+  temas: Theme[];
   aoTrocar: (id: string, tema: string | null) => void;
   salvando: string | null;
 }) {

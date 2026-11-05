@@ -34,22 +34,17 @@ import { BotaoDesfazer, RecuperarContexto, chaveCampo, chaveLinha } from "../com
  * O que a ficha 6 precisa do quadro para falar com a volta atrás da ficha
  * inteira (não há linha aqui, só um campo por vez).
  */
-interface ContextoFicha {
-  salvar: Salvar;
-  copia: (chave: string) => boolean;
-  marcarCopia: (chave: string) => void;
-}
-const FichaContexto = createContext<ContextoFicha | null>(null);
+const FichaContexto = createContext<{ salvar: Salvar } | null>(null);
 
 export const FICHAS = [
   { n: 1, rota: "1", titulo: "Levantamento institucional", resumo: "Missão, estrutura e liderança do núcleo" },
-  { n: 2, rota: "2", titulo: "Números do setor", resumo: "Projetos, bolsistas, editais e Publico", },
+  { n: 2, rota: "2", titulo: "Números do setor", resumo: "Projetos, bolsistas, editais e público atendido" },
   { n: 3, rota: "3", titulo: "Fluxo atual e gargalos", resumo: "Etapas, responsáveis e onde trava" },
   { n: 4, rota: "4", titulo: "Mapa de sistemas", resumo: "SISPROEX, iniciação científica e afins" },
   { n: 5, rota: "5", titulo: "Base normativa", resumo: "Procedimento, norma, responsável e prazo" },
   { n: 6, rota: "6", titulo: "Plano de melhoria", resumo: "A ideia em 5W2H e acompanhamento em PDCA" },
   { n: 7, rota: "7", titulo: "Diário de campo", resumo: "O que observou, a fonte e a dúvida" },
-  { n: 8, rota: "8", titulo: "Glossário do DCHT XXI", resumo: "Siglas e significado verificados" },
+  { n: 8, rota: "8", titulo: "Glossário do NUPE", resumo: "Siglas e significado verificados" },
 ];
 
 function id() {
@@ -88,7 +83,17 @@ function useSalvarFicha() {
         const r = await api.put<{ copias?: Record<string, boolean> }>(`/api/records/${kind}`, corpo);
         if (meu !== seq.current) return;
         // O botão "Desfazer" só aparece onde o servidor tem o conteúdo anterior.
-        if (r?.copias && typeof r.copias === "object") setCopias((antes) => ({ ...antes, ...r.copias }));
+        // O servidor manda a lista inteira das chaves do lote (só as que têm
+        // cópia): esta ficha passa a valer por ela, e as outras mantêm o que já
+        // tinham. Linha desta ficha sem cópia perde o botão.
+        if (r?.copias && typeof r.copias === "object") {
+          setCopias((antes) => {
+            const agora: Record<string, boolean> = {};
+            for (const [chave, tem] of Object.entries(antes)) if (!chave.startsWith(`${kind}:`)) agora[chave] = tem;
+            for (const [chave, tem] of Object.entries(r.copias!)) if (tem) agora[chave] = true;
+            return agora;
+          });
+        }
         const h = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
         setTexto(pendente.current ? "Salvando…" : `Salvo às ${h}`);
         setCodigo(pendente.current ? 2 : 1);
@@ -205,8 +210,6 @@ export function Ficha({ numero }: { numero: string }) {
   // edição partiria do texto velho e desfaria a volta atrás sem querer.
   const [emCurso, setEmCurso] = useState("");
   const [erroDesfazer, setErroDesfazer] = useState("");
-  /** Linhas da ficha 2 gravadas pela primeira vez agora: já têm conteúdo anterior (vazio). */
-  const [copiasLocais, setCopiasLocais] = useState<Record<string, boolean>>({});
   /** Lê a ficha de novo sem passar pelo aviso de carregando. */
   const recarregarComFicha = useCallback(
     () =>
@@ -246,10 +249,9 @@ export function Ficha({ numero }: { numero: string }) {
   useEffect(() => {
     if (emCurso) ocupadoRef.current();
   }, [emCurso]);
-  /** O informe que inclui a cópia guardada agora pela ficha 2 (a primeira gravação das linhas). */
-  const copia = (chave: string) => Boolean(salvar.copias[chave] || copiasLocais[chave]);
-  const marcarCopia = useCallback((chave: string) => setCopiasLocais((c) => ({ ...c, [chave]: true })), []);
-  const contextoFicha = useMemo(() => ({ salvar, copia, marcarCopia }), [salvar, copia, marcarCopia]);
+  /** O servidor guarda cópia anterior desta linha (a primeira gravação deixa o vazio guardado). */
+  const copia = (chave: string) => Boolean(salvar.copias[chave]);
+  const contextoFicha = useMemo(() => ({ salvar }), [salvar]);
   // Cada ficha (e as matrizes) registra como enviar o que está pendente quando a
   // tela troca; sem isso, sair logo depois de digitar perderia a última edição.
   useEffect(
@@ -328,7 +330,7 @@ export function Ficha({ numero }: { numero: string }) {
               <RecuperarContexto.Provider value={recuperar}>
                 <AvisoEdicao.Provider value={avisarEdicao}>
                   {info.n === 1 ? <Ficha1 dados={dados} salvar={salvar} copia={copia} /> : null}
-                  {info.n === 2 ? <Ficha2 dados={dados} salvar={salvar} copia={copia} marcarCopia={marcarCopia} /> : null}
+                  {info.n === 2 ? <Ficha2 dados={dados} salvar={salvar} copia={copia} /> : null}
                   {info.n === 3 ? <Ficha3 dados={dados} salvar={salvar} recarregar={recarregar} copia={copia} /> : null}
                   {info.n === 4 ? <Ficha4 dados={dados} salvar={salvar} copia={copia} /> : null}
                   {info.n === 5 ? <Ficha5 dados={dados} salvar={salvar} copia={copia} /> : null}
@@ -474,12 +476,10 @@ function Ficha2({
   dados,
   salvar,
   copia,
-  marcarCopia,
 }: {
   dados: RecordsView;
   salvar: Salvar;
   copia: (chave: string) => boolean;
-  marcarCopia: (chave: string) => void;
 }) {
   const avisar = useContext(AvisoEdicao);
   const [locais] = useState(() =>
@@ -498,14 +498,10 @@ function Ficha2({
     setLinhas(novos);
   }, [dados.institution?.numbers]);
   const gravar = (novas: RecordsView["institution"]["numbers"]) => {
-    const primeira = vazio.current;
     entregue.current = novas;
     vazio.current = false;
     setLinhas(novas);
     avisar();
-    // A primeira gravação deixa o conteúdo anterior vazio, mas guardado: essas
-    // linhas também podem ser desfeitas, mesmo antes do servidor confirmar.
-    if (primeira) for (const r of novas) marcarCopia(chaveLinha("institution", r.id));
     salvar.salvar("institution", { fields: dados.institution?.fields ?? {}, numbers: novas });
   };
 
@@ -756,8 +752,10 @@ function Ficha3({
 function Ficha4({ dados, salvar, copia }: { dados: RecordsView; salvar: Salvar; copia: (chave: string) => boolean }) {
   const avisar = useContext(AvisoEdicao);
   // Cópia local: adicionar e remover usam o estado da tela, não a foto do servidor.
+  // As linhas padrão nascem com id próprio: o servidor gera outro ao guardar, e
+  // repetir "sisproex" aqui faria a primeira gravação parecer edição da linha guardada.
   const [sistemas, setSistemas] = useState<RecordsView["systems"]>(() =>
-    dados.systems?.length ? dados.systems : SYSTEM_INITIAL.map((s) => ({ id: s.id, name: s.name, fields: {} as Record<string, string> })),
+    dados.systems?.length ? dados.systems : SYSTEM_INITIAL.map((s) => ({ id: id(), name: s.name, fields: {} as Record<string, string> })),
   );
   /** Sistemas tirados da lista nesta sessão, para o Desfazer ficar ao alcance. */
   const [removidos, setRemovidos] = useState<RecordsView["systems"]>([]);
@@ -914,13 +912,14 @@ function Ficha5({ dados, salvar, copia }: { dados: RecordsView; salvar: Salvar; 
                     <td key={c.key}>
                       {travado ? (
                         <span>
-                          {p.base}
+                          {p.base || PLACEHOLDER}
                           <span className="micro"> · fixo</span>
                         </span>
                       ) : (
                         <CampoTexto
                           rotulo={`${p.procedure}, ${c.label}`}
                           valor={(p as unknown as Record<string, string>)[c.key] ?? ""}
+                          placeholder={c.key === "base" ? PLACEHOLDER : undefined}
                           aoSalvar={(v) => (avisar(), gravar(linhas.map((x) => (x.id === p.id ? { ...x, [c.key]: v } : x))))}
                         />
                       )}
@@ -940,8 +939,16 @@ function Ficha5({ dados, salvar, copia }: { dados: RecordsView; salvar: Salvar; 
           </tbody>
         </table>
       </div>
+      <button
+        type="button"
+        className="btn"
+        style={{ marginTop: 12 }}
+        onClick={() => (avisar(), gravar([...linhas, { id: id(), procedure: "", base: "", responsible: "", deadline: "" }]))}
+      >
+        Adicionar procedimento
+      </button>
       <p className="micro" style={{ marginTop: 10 }}>
-        Linhas em ordem fixa. Se faltar um procedimento, registre-o no diário de campo (ficha 7).
+        As linhas iniciais vêm da planilha de origem; a norma de cada uma você confirma e completa.
       </p>
     </div>
   );

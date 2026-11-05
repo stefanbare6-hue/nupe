@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { api, ApiError } from "../lib/http";
 import { prazo, rotuloPublico, dataCurta, numero } from "../lib/formato";
 import { irPara } from "../lib/rotas";
@@ -25,56 +25,6 @@ const STATUS: Record<Collection["status"], string> = {
 
 function classeEstado(status: Collection["status"]) {
   return "estado " + (status === "aberta" ? "ok" : status === "encerrada" ? "off" : "pend");
-}
-
-export function Modal({
-  titulo,
-  children,
-  aoFechar,
-}: {
-  titulo: string;
-  children: React.ReactNode;
-  aoFechar: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const anterior = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    anterior.current = document.activeElement as HTMLElement | null;
-    ref.current?.focus();
-    const aoTeclar = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        aoFechar();
-      }
-      if (e.key !== "Tab" || !ref.current) return;
-      const focaveis = [...ref.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), input, select, textarea")];
-      if (focaveis.length === 0) return;
-      const primeiro = focaveis[0]!;
-      const ultimo = focaveis[focaveis.length - 1]!;
-      if (e.shiftKey && document.activeElement === primeiro) {
-        e.preventDefault();
-        ultimo.focus();
-      } else if (!e.shiftKey && document.activeElement === ultimo) {
-        e.preventDefault();
-        primeiro.focus();
-      }
-    };
-    document.addEventListener("keydown", aoTeclar);
-    return () => {
-      document.removeEventListener("keydown", aoTeclar);
-      anterior.current?.focus();
-    };
-  }, [aoFechar]);
-  return (
-    <div className="modal-fundo" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && aoFechar()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo" tabIndex={-1} ref={ref}>
-        <h2 id="modal-titulo" className="secao">
-          {titulo}
-        </h2>
-        {children}
-      </div>
-    </div>
-  );
 }
 
 function LinkCopiavel({ link }: { link: string }) {
@@ -117,7 +67,7 @@ function LinkCopiavel({ link }: { link: string }) {
   );
 }
 
-function LinkPublico({ collection }: { collection: Collection }) {
+function LinkPublico({ collection, aoAtualizar }: { collection: Collection; aoAtualizar: () => void }) {
   const [erro, setErro] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const [confirmar, setConfirmar] = useState(false);
@@ -140,7 +90,8 @@ function LinkPublico({ collection }: { collection: Collection }) {
             setOcupado(true);
             try {
               await api.post(`/api/collections/${collection.id}/rotate-link`);
-              location.reload();
+              // Relê o painel para mostrar o link novo, sem recarregar a página.
+              await aoAtualizar();
             } catch (e) {
               setErro(e instanceof ApiError ? e.message : "Não foi possível gerar o link.");
               setOcupado(false);
@@ -336,7 +287,7 @@ export function Coletas() {
                         resposta{total === 1 ? "" : "s"} recebida{total === 1 ? "" : "s"} · {prazo(c.closesAt)}
                       </span>
                     </p>
-                    {c.status === "aberta" ? <LinkPublico collection={c} /> : null}
+                    {c.status === "aberta" ? <LinkPublico collection={c} aoAtualizar={recarregar} /> : null}
 
                     {c.status !== "aberta" ? (
                       <button

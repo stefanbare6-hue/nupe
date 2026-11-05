@@ -87,28 +87,27 @@ export function sameOrigin(req: FastifyRequest): boolean {
   }
 }
 
-export function requireAuth(store: Store) {
-  return async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!isAuthenticated(store, req)) {
-      return reply.code(401).send({ error: "Sessão expirada. Entre novamente." });
-    }
-  };
-}
-
 export function rateLimiter(max: number, windowMs: number) {
   const hits = new Map<string, number[]>();
-  return (key: string): boolean => {
+  let limite = max;
+  const limpar = (now: number) => {
+    for (const [k, v] of hits) if (v.every((t) => now - t > windowMs)) hits.delete(k);
+  };
+  const limitar = (key: string): boolean => {
     const now = Date.now();
+    if (hits.size > 1000) limpar(now);
     const arr = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
-    if (arr.length >= max) {
+    if (arr.length >= limite) {
       hits.set(key, arr);
       return false;
     }
     arr.push(now);
     hits.set(key, arr);
-    if (hits.size > 5000) {
-      for (const [k, v] of hits) if (v.every((t) => now - t > windowMs)) hits.delete(k);
-    }
     return true;
   };
+  /** Troca o máximo dentro da mesma janela (o ajuste da estagiária vale na hora). */
+  limitar.ajustar = (novo: number) => {
+    limite = Math.max(1, novo);
+  };
+  return limitar;
 }

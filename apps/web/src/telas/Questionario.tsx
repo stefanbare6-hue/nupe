@@ -296,8 +296,8 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
               </h2>
             </div>
             <p className="legenda" style={{ maxWidth: "56ch" }}>
-              Ao enviar, a resposta é gravada sem qualquer dado que identifique você. Uma mesma pessoa responde uma vez por
-              aparelho.
+              Ao enviar, a resposta é gravada sem qualquer dado que identifique você. Cada aparelho envia uma resposta por
+              questionário.
             </p>
             <button className="btn primario" type="submit" disabled={enviando}>
               {enviando ? "Enviando…" : "Enviar respostas"}

@@ -264,13 +264,34 @@ describe("coletas e questionário público", () => {
 
   it("o mesmo aparelho não responde duas vezes", async () => {
     const sessionId = sessao("c");
+    // A prova já é recusada: a pessoa é avisada antes de preencher tudo de novo.
+    const nova = await chamar(lab.base, "POST", "/api/public/surveys/contest", { collectionPublicId: publicId, sessionId });
+    expect(nova.status).toBe(409);
+    // E o envio direto, com a prova que ele guardou, também não passa.
     const r = await chamar(lab.base, "POST", `/api/public/surveys/${publicId}/responses`, {
       sessionId,
-      proof: await prova(sessionId),
+      proof: "",
       answers: RESPOSTAS_ESTUDANTE,
     });
-    expect(r.status).toBe(409);
-    expect(r.json.error).toMatch(/já enviou/);
+    expect(r.status).not.toBe(201);
+    const c = lab.store.data.collections.find((x) => x.publicId === publicId)!;
+    expect(lab.store.data.entries.filter((e) => e.collectionId === c.id)).toHaveLength(1);
+  });
+
+  it("o recibo responde pelo aparelho, sem guardar o identificador", async () => {
+    // Antes de responder: pela prova (que não conta como resposta).
+    const nova = sessao("recibo");
+    expect((await chamar(lab.base, "POST", "/api/public/surveys/contest", { collectionPublicId: publicId, sessionId: nova })).status).toBe(200);
+    expect(
+      (await chamar(lab.base, "POST", `/api/public/surveys/${publicId}/recibo`, { sessionId: nova })).json.respondido,
+    ).toBe(false);
+    // Depois de responder: sim.
+    expect(
+      (await chamar(lab.base, "POST", `/api/public/surveys/${publicId}/recibo`, { sessionId: sessao("c") })).json.respondido,
+    ).toBe(true);
+    // O registro guarda hash, não o identificador do aparelho.
+    const c = lab.store.data.collections.find((x) => x.publicId === publicId)!;
+    expect(lab.store.data.contest[c.id]!.every((x) => !x.sessionId.startsWith("sess-"))).toBe(true);
   });
 
   it("coleta encerrada recusa novos envios", async () => {
@@ -493,6 +514,36 @@ describe("fichas, matrizes e relatório", () => {
     const r = await chamar(lab.base, "GET", "/api/report", undefined, cookie);
     expect(r.json.report.sections[0].paras[0].text).toContain("Foram recebidas 0 respostas");
   });
+
+  it("os ajustes gravam só os campos conhecidos e recusam período invertido", async () => {
+    const antes = lab.store.data.settings;
+    const r = await chamar(
+      lab.base,
+      "PUT",
+      "/api/records/settings",
+      { displayName: "Núcleo de Pesquisa e Extensão", supervisor: "Coordenação", extra: "não deveria entrar" },
+      cookie,
+    );
+    expect(r.status).toBe(200);
+    const depois = lab.store.data.settings;
+    expect(depois.displayName).toBe("Núcleo de Pesquisa e Extensão");
+    expect(depois.supervisor).toBe("Coordenação");
+    expect(depois).not.toHaveProperty("extra");
+    expect(depois.course).toBe(antes.course);
+    const invertido = await chamar(lab.base, "PUT", "/api/records/settings", { startDate: "2026-08-01", endDate: "2026-07-01" }, cookie);
+    expect(invertido.status).toBe(422);
+    expect(lab.store.data.settings.startDate).not.toBe("2026-08-01");
+  });
+
+  it("os dados fictícios só entram e saem com o cabeçalho do painel", async () => {
+    const semCabecalho = await fetch(lab.base + "/api/demo/seed", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-nupe-client": "outro", origin: lab.base, cookie },
+      body: "{}",
+    });
+    expect(semCabecalho.status).toBe(403);
+    expect(lab.store.data.demo).toBeNull();
+  });
 });
 
 describe("limites de acesso", () => {
@@ -505,6 +556,29 @@ describe("limites de acesso", () => {
     expect(codigos.at(-1)).toBe(429);
     // Mesmo com a senha certa, o limite continua valendo na janela.
     expect((await chamar(lab.base, "POST", "/api/login", { email: EMAIL, password: SENHA })).status).toBe(429);
+  });
+
+  it("o limite por rede dos ajustes vale já no próximo envio (0 desliga)", async () => {
+    const lab = await laboratorio();
+    await chamar(lab.base, "POST", "/api/setup", { name: "Pessoa de Teste", email: EMAIL, password: SENHA });
+    const cookie = await entrar(lab.base);
+    const c = lab.store.data.collections.find((x) => x.audience === "docentes")!;
+    const publicId = (await chamar(lab.base, "PATCH", `/api/collections/${c.id}`, { status: "aberta" }, cookie)).json.collection.publicId;
+    expect((await chamar(lab.base, "PUT", "/api/records/settings", { rateLimitPerHour: 1 }, cookie)).status).toBe(200);
+    const enviar = async (n: number) => {
+      const sessionId = `docente-${n}-${"z".repeat(30)}`;
+      await chamar(lab.base, "POST", "/api/public/surveys/contest", { collectionPublicId: publicId, sessionId });
+      const r = await chamar(lab.base, "POST", `/api/public/surveys/${publicId}/responses`, {
+        sessionId,
+        proof: (await chamar(lab.base, "POST", "/api/public/surveys/contest", { collectionPublicId: publicId, sessionId })).json.proof,
+        answers: { d1: "ambos", d2: ["site"], d3: 3, d4: "relatorio", d5: "as_vezes", d6: 3, d7: "nao", d8: "Texto de teste." },
+      });
+      return r.status;
+    };
+    await enviar(1);
+    expect(await enviar(2)).toBe(429);
+    expect((await chamar(lab.base, "PUT", "/api/records/settings", { rateLimitPerHour: 0 }, cookie)).status).toBe(200);
+    expect(await enviar(3)).toBe(201);
   });
 
   it("sala de aula atrás do mesmo IP: cada aparelho responde uma vez", async () => {

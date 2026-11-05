@@ -93,7 +93,7 @@ export function App() {
       </AreaInterna>
     );
 
-  if (seg[0] === "configurar" || seg[0] === "ajustes")
+  if (seg[0] === "ajustes")
     return (
       <AreaInterna atual="/ajustes" titulo="Ajustes">
         {(me) => <Ajustes me={me} />}

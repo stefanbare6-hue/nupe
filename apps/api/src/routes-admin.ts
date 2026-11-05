@@ -9,6 +9,7 @@ import {
   buildNextSteps,
   buildReport,
   computeGut,
+  chavesDoLote,
   effectiveThemeIds,
   getSurvey,
   isAudience,
@@ -21,11 +22,13 @@ import {
 import { randomBytes } from "node:crypto";
 import type { DB, Store } from "./db";
 import { createSession, destroySession, hashPassword, isAuthenticated, rateLimiter, verifyPassword } from "./auth";
-import { issueAntibotToken } from "./routes-public";
+import { issueAntibotToken, collectionByPublicId, answeredBy } from "./routes-public";
 import { limparDemo, seedDemo } from "./seed";
-import { anterior, chaveCampo, chaveLinha, conteudoDe, itensDe, registrarMudancas, restaurar } from "./historico";
+import { anterior, conteudoDe, itensDe, registrarMudancas, restaurar } from "./historico";
 
-const secureCookie = process.env.NODE_ENV === "production" || process.env.NUPE_SECURE_COOKIE === "1";const isHttps = (req: { protocol?: string; headers: Record<string, unknown> }) => {
+const secureCookie = process.env.NODE_ENV === "production" || process.env.NUPE_SECURE_COOKIE === "1";
+
+const isHttps = (req: { protocol?: string; headers: Record<string, unknown> }) => {
   // Atrás de proxy (Render, Railway, Fly), a conexão local é HTTP e o esquema
   // real chega em X-Forwarded-Proto. Sem isto o cookie de sessão sairia sem
   // `Secure` e a sessão poderia cair a cada clique em servidores que exigem HTTPS.
@@ -173,10 +176,16 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
 
   /** Gera prova anti-envio repetido (vinculada à sessão anônima do navegador). */
   app.post<{ Body: { collectionPublicId?: string; sessionId?: string } }>("/api/public/surveys/contest", async (req, reply) => {
-    const c = store.data.collections.find((x) => x.publicId === req.body?.collectionPublicId);
+    const c = collectionByPublicId(store, String(req.body?.collectionPublicId ?? ""));
     const sessionId = String(req.body?.sessionId ?? "");
     if (!c || c.status !== "aberta" || sessionId.length < 20 || sessionId.length > 80) {
       return reply.code(400).send({ error: "Não foi possível preparar o envio." });
+    }
+    // Cada aparelho responde uma vez: a tela pergunta antes de a pessoa preencher
+    // tudo e mostra o aviso aqui, em vez de recusar só no fim.
+    const chave = await answeredBy(secret, sessionId);
+    if ((store.data.contest[c.id] ?? []).some((x) => x.sessionId === chave)) {
+      return reply.code(409).send({ error: "Este aparelho já enviou uma resposta a este questionário." });
     }
     return { proof: await issueAntibotToken(store, secret, c.id, sessionId) };
   });
@@ -189,7 +198,7 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
     const summary = analyzeAudience(getSurvey(aud), entries.map((e) => ({ answers: toRaw(e.answers) })));
     const themes = groupThemes(store, aud);
     const texts = openResponsesFor(store, aud)
-      .map((r) => ({ id: r.id, questionId: r.questionId, text: r.text, themeIds: themeIdsOf(store, r), manual: r.manualThemeId != null }));
+      .map((r) => ({ id: r.id, questionId: r.questionId, text: r.text, themeIds: effectiveThemeIds(r), manual: r.manualThemeId != null }));
     // Totais dos três públicos: as abas já mostram os números sem abrir cada uma.
     const totals = Object.fromEntries(AUDIENCES.map((a) => [a, entriesFor(store, a).length]));
     return { summary, themes: store.data.themes, openResponses: texts, totals };
@@ -298,7 +307,7 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
     const antes = conteudoDe(kind, store.data);
     // Recusa: só a resposta de erro leva o 400 (o código preso à resposta
     // marcaria de erro a gravação que deu certo).
-    const x = { send: (corpo: { error: string }) => reply.code(400).send(corpo) };
+    const x = { send: (corpo: { error: string }, status = 400) => reply.code(status).send(corpo) };
     switch (kind) {
       case "institution": {
         // A primeira edição pode chegar só com os números (ou só com os campos):
@@ -309,9 +318,29 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
         store.data.institution = { fields: campos, numbers: numeros, updatedAt: stamp };
         break;
       }
-      case "settings":
-        store.data.settings = { ...store.data.settings, ...(body as any), updatedAt: stamp };
+      case "settings": {
+        // Só os campos conhecidos entram: o envio não pode gravar chaves soltas
+        // no registro, nem trocar o carimbo por conta própria.
+        const atual = store.data.settings;
+        const data = (v: unknown, anterior: string) =>
+          typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : v === "" ? "" : anterior;
+        const limite = Number(body.rateLimitPerHour);
+        const startDate = data(body.startDate, atual.startDate);
+        const endDate = data(body.endDate, atual.endDate);
+        if (startDate && endDate && endDate < startDate) {
+          return x.send({ error: "A previsão de término precisa ser depois do início." }, 422);
+        }
+        store.data.settings = {
+          displayName: texto(body.displayName) || atual.displayName,
+          startDate,
+          endDate,
+          supervisor: texto(body.supervisor),
+          course: texto(body.course),
+          rateLimitPerHour: Number.isFinite(limite) ? Math.min(200, Math.max(0, Math.round(limite))) : atual.rateLimitPerHour,
+          updatedAt: stamp,
+        };
         break;
+      }
       case "improvement":
         store.data.improvement = {
           id: "principal",
@@ -357,11 +386,14 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
       case "procedures":
         if (!Array.isArray(body.procedures)) return x.send({ error: "Procedimentos inválidos." });
         store.data.procedures = body.procedures.map((p: any) => ({
-          id: String(p.id),
+          id: String(p.id ?? crypto.randomUUID()),
           procedure: String(p.procedure ?? ""),
           base: String(p.base ?? ""),
           responsible: String(p.responsible ?? ""),
           deadline: String(p.deadline ?? ""),
+          // Marcas da planilha de origem: o trecho fixo continua fixo ao reler.
+          ...(p.fixedBase ? { fixedBase: true } : {}),
+          ...(p.note ? { note: String(p.note) } : {}),
         }));
         break;
       case "diary":
@@ -443,11 +475,15 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
   });
 
   // ── Demonstração ───────────────────────────────────────────────
-  app.post("/api/demo/seed", { preHandler: guard }, async () => {
+  // Exigem o cabeçalho do cliente, como qualquer gravação: só o próprio painel
+  // aciona a demonstração.
+  app.post("/api/demo/seed", { preHandler: guard }, async (req, reply) => {
+    if (req.headers["x-nupe-client"] !== "web") return reply.code(403).send({ error: "Requisição recusada." });
     await seedDemo(store);
     return { ok: true };
   });
-  app.post("/api/demo/clear", { preHandler: guard }, async () => {
+  app.post("/api/demo/clear", { preHandler: guard }, async (req, reply) => {
+    if (req.headers["x-nupe-client"] !== "web") return reply.code(403).send({ error: "Requisição recusada." });
     await limparDemo(store);
     return { ok: true };
   });
@@ -464,13 +500,9 @@ function entriesFor(store: Store, audience: Audience, collectionId?: string) {
   return store.data.entries.filter((e) => ids.has(e.collectionId));
 }
 
-/** Respostas abertas de dados reais (a demonstração fictícia nunca entra nos resultados). */
+/** Respostas abertas do público (a demonstração, quando carregada, também conta). */
 function openResponsesFor(store: Store, audience?: Audience) {
   return store.data.openResponses.filter((r) => !audience || r.audience === audience);
-}
-
-function findCollection(store: Store, id: string) {
-  return store.data.collections.find((c) => c.id === id);
 }
 
 function toRaw(answers: { questionId: string; value: unknown }[]): RawAnswers {
@@ -479,15 +511,11 @@ function toRaw(answers: { questionId: string; value: unknown }[]): RawAnswers {
   return out;
 }
 
-function themeIdsOf(store: Store, r: Store["data"]["openResponses"][number]): string[] {
-  return effectiveThemeIds(r);
-}
-
 function groupThemes(store: Store, audience: Audience) {
   const rows = openResponsesFor(store, audience);
   const groups = new Map<string, { label: string; count: number; examples: string[] }>();
   for (const r of rows) {
-    const ids = themeIdsOf(store, r);
+    const ids = effectiveThemeIds(r);
     if (ids.length === 0) {
       const g = groups.get("sem-tema") ?? { label: "Sem tema (revisar)", count: 0, examples: [] };
       g.count += 1;
@@ -607,33 +635,7 @@ function valorDaFicha6(conteudo: unknown, campo: string): string {
 
 /** Chaves de versão das linhas e dos campos da ficha 1 que este envio carrega. */
 function chavesDe(kind: string, b: Record<string, unknown>): string[] {
-  const chaves: string[] = [];
-  const lista = (campo: string) => (Array.isArray(b[campo]) ? (b[campo] as Array<{ id?: unknown }>) : []);
-  const daLista = (lista: Array<{ id?: unknown }>) => {
-    for (const x of lista) if (typeof x.id === "string" && x.id) chaves.push(chaveLinha(kind, x.id));
-  };
-  if (kind === "flows") daLista(lista("flows"));
-  if (kind === "systems") daLista(lista("systems"));
-  if (kind === "procedures") daLista(lista("procedures"));
-  if (kind === "diary" || kind === "glossary") daLista(lista("rows"));
-  if (kind === "institution") {
-    daLista(lista("numbers"));
-    if (isPlain(b.fields)) for (const campo of Object.keys(b.fields)) chaves.push(chaveCampo("institution", campo));
-  }
-  if (kind === "improvement") {
-    // O envio da ficha 6 leva os três campos de uma vez: cada um tem cópia própria.
-    chaves.push(chaveCampo("improvement", "idea"));
-    for (const campo of Object.keys(isPlain(b.fiveW2H) ? b.fiveW2H : {})) chaves.push(chaveCampo("improvement", `fiveW2H.${campo}`));
-    for (const campo of Object.keys(isPlain(b.pdca) ? b.pdca : {})) chaves.push(chaveCampo("improvement", `pdca.${campo}`));
-  }
-  if (kind === "matrices") {
-    const m = b as unknown as Matrices;
-    for (const grupo of [m.porter, m.swot]) {
-      for (const l of Object.values(grupo ?? {})) if (Array.isArray(l)) daLista(l);
-    }
-    if (Array.isArray(m.gut)) daLista(m.gut);
-  }
-  return chaves;
+  return chavesDoLote(kind, b);
 }
 
 function asStringMap(v: unknown): Record<string, string> {
@@ -654,12 +656,15 @@ function normalizeNumberRow(r: any) {
   };
 }
 function normalizeMatrices(m: Matrices): Matrices {
+  // A nota 0 conta como ausente: no GUT ela vira 1 no relatório, mas não pode
+  // mudar de sentido ao ser gravada e relida.
+  const nota = (v: unknown) => (v ? Number(v) : undefined);
   const item = (x: any) => ({
     id: String(x?.id ?? crypto.randomUUID()),
     text: String(x?.text ?? ""),
-    gravity: x?.gravity ? Number(x.gravity) : undefined,
-    urgency: x?.urgency ? Number(x.urgency) : undefined,
-    tendency: x?.tendency ? Number(x.tendency) : undefined,
+    gravity: nota(x?.gravity),
+    urgency: nota(x?.urgency),
+    tendency: nota(x?.tendency),
     linkedStrengthId: x?.linkedStrengthId ? String(x.linkedStrengthId) : undefined,
     evidence: x?.evidence ? String(x.evidence) : undefined,
   });
