@@ -138,10 +138,13 @@ export function Coletas() {
     [recarregar],
   );
 
-  const abertas = dados?.collections.filter((c) => c.status === "aberta" && !c.demo) ?? [];
+  const reais = dados?.collections.filter((c) => !c.demo) ?? [];
+  // A lista mostra as abertas e as que ainda precisam ser abertas: uma coleta em
+  // rascunho precisa do botão "Abrir coleta" para o link nascer.
+  const abertas = reais.filter((c) => c.status !== "encerrada");
   const demo = dados?.collections.filter((c) => c.demo) ?? [];
   const recebidas = (dados?.counts ?? []).reduce((s, c) => s + c.total, 0);
-  const comPrazo = (dados?.collections ?? []).filter((c) => c.closesAt && c.status === "aberta").length;
+  const comPrazo = reais.filter((c) => c.closesAt && c.status === "aberta").length;
 
   return (
     <>
@@ -163,12 +166,20 @@ export function Coletas() {
               setAvisoLinks("");
               try {
                 const d = await api.get<{ links: Record<string, string | null> }>("/api/collections/links");
-                const linhas = Object.entries(d.links)
-                  .filter(([, link]) => link)
+                const prontos = Object.entries(d.links).filter((par): par is [string, string] => Boolean(par[1]));
+                if (prontos.length === 0) {
+                  setAvisoLinks("Nenhuma coleta está aberta. Abra a coleta para o link ser criado.");
+                  return;
+                }
+                const linhas = prontos
                   .map(([p, link]) => `${rotuloPublico(p)}: ${window.location.origin}${link}`)
                   .join("\n");
                 await navigator.clipboard.writeText(linhas);
-                setAvisoLinks("Links copiados. Cada linha traz o público e o endereço completo.");
+                setAvisoLinks(
+                  prontos.length === 1
+                    ? "Link copiado. Cada linha traz o público e o endereço completo."
+                    : "Links copiados. Cada linha traz o público e o endereço completo.",
+                );
               } catch {
                 setAvisoLinks("Não foi possível copiar. Copie pelo campo de cada coleta.");
               } finally {
@@ -189,7 +200,7 @@ export function Coletas() {
               <IconePublico publico="grupo" size={24} />
             </span>
             <div>
-              <div className="kpi-value">{abertas.length}</div>
+              <div className="kpi-value">{reais.filter((c) => c.status === "aberta").length}</div>
               <div className="kpi-label">coletas abertas</div>
             </div>
           </div>
@@ -236,7 +247,7 @@ export function Coletas() {
       {fase === "erro" ? <Falha texto={erro} aoTentar={recarregar} /> : null}
       {fase === "pronto" ? (
         <>
-          <h2 className="titulo-secao">Coletas em andamento</h2>
+          <h2 className="titulo-secao">Coletas por público</h2>
           <div className="coletas-grafo">
             {abertas.map((c) => {
               const total = dados.counts.find((x) => x.audience === c.audience)?.total ?? 0;
