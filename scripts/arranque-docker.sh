@@ -9,7 +9,7 @@ DADOS="$(dirname "${NUPE_DATA:-/dados/nupe.json}")"
 mkdir -p "$DADOS"
 
 if [ "$(id -u)" = "0" ]; then
-  if [ "$(stat -c %u "$DADOS" 2>/dev/null || echo 0)" != "1000" ]; then
+  if [ "$(stat -c %u "$DADOS")" != "$(id -u node)" ]; then
     chown -R node:node "$DADOS"
   fi
   exec su-exec node node apps/api/dist/server.js
