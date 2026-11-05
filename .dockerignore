@@ -7,3 +7,7 @@ capturas
 .agents
 .claude
 .taste-skill
+# O .env fica fora da imagem: em produção as variáveis vêm do painel de deploy.
+.env
+.env.*
+!.env.example
