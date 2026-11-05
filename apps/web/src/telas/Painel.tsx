@@ -139,9 +139,9 @@ export function Coletas() {
   );
 
   const reais = dados?.collections.filter((c) => !c.demo) ?? [];
-  // A lista mostra as abertas e as que ainda precisam ser abertas: uma coleta em
-  // rascunho precisa do botão "Abrir coleta" para o link nascer.
-  const abertas = reais.filter((c) => c.status !== "encerrada");
+  // Todos os públicos aparecem sempre, em qualquer estado. Uma coleta encerrada
+  // precisa continuar na lista para o botão "Reabrir coleta" existir.
+  const abertas = reais;
   const demo = dados?.collections.filter((c) => c.demo) ?? [];
   const recebidas = (dados?.counts ?? []).reduce((s, c) => s + c.total, 0);
   const comPrazo = reais.filter((c) => c.closesAt && c.status === "aberta").length;
