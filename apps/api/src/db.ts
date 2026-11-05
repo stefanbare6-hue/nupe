@@ -194,6 +194,11 @@ export class Store {
     this.data = data;
   }
 
+  /** Se o disco aceita gravação. A tela e o log usam para avisar sobre dados voláteis. */
+  get gravaNoDisco(): boolean {
+    return this.podeGravar;
+  }
+
   static async open(path: string): Promise<Store> {
     const store = await Store.carregar(path);
     // Sondagem única: se o disco aceita gravação, o resto da vida do processo

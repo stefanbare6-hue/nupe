@@ -51,4 +51,6 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 await app.listen({ port: PORT, host: HOST });
-app.log.info({ dataPath: DATA_PATH }, "NUPE API pronta");
+// O log precisa dizer em que porta e em que arquivo o app ficou: é por essas
+// duas linhas que se descobre um domínio apontando para a porta errada.
+app.log.info({ porta: PORT, host: HOST, dataPath: DATA_PATH, gravavel: store.gravaNoDisco }, "NUPE API pronta");

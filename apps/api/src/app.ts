@@ -49,7 +49,9 @@ export async function buildApp(options: {
   await registerPublicRoutes(app, store, secret);
   await registerAdminRoutes(app, store, secret);
 
-  app.get("/api/health", async () => ({ ok: true }));
+  // O "gravavel" diz se o arquivo de dados está num disco que persiste. Sem essa
+  // informação, um deploy com volume mal montado parece normal até o primeiro reinício.
+  app.get("/api/health", async () => ({ ok: true, gravavel: store.gravaNoDisco }));
 
   // Só fora de produção, com o segredo do arquivo .env: serve para voltar a
   // entrar no servidor de desenvolvimento quando a senha for esquecida.
