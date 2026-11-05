@@ -1,7 +1,7 @@
 ﻿// Verificação do "Desfazer" numa sessão real de navegador.
 // Uso: node scripts/checa-desfazer.mjs [base]
 import { chromium } from "playwright";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const base = process.argv[2] ?? "http://localhost:3333";
 const saida = "capturas/desfazer";
@@ -9,6 +9,13 @@ mkdirSync(saida, { recursive: true });
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+// Guarda o login entre verificações: o limite de tentativas é 8 a cada 10 min.
+const sessao = "scripts/.sessao.json";
+if (existsSync(sessao)) {
+  try {
+    await ctx.addCookies(JSON.parse(readFileSync(sessao, "utf8")));
+  } catch {}
+}
 const page = await ctx.newPage();
 const erros = [];
 page.on("pageerror", (e) => erros.push(`pageerror: ${e.message}`));
@@ -26,10 +33,14 @@ const falha = (nome) => {
 };
 
 await page.goto(`${base}/entrar`);
-await page.getByLabel("E-mail").fill("maria@exemplo.br");
-await page.getByLabel("Senha").fill("senha-teste-123");
-await page.getByRole("button", { name: /entrar/i }).click();
+// Só entra quando não houver sessão guardada; do contrário o /entrar já vai direto ao painel.
+if (await page.getByLabel("E-mail").count()) {
+  await page.getByLabel("E-mail").fill("maria@exemplo.br");
+  await page.getByLabel("Senha").fill("senha-teste-123");
+  await page.getByRole("button", { name: /entrar/i }).click();
+}
 await page.waitForURL((u) => !u.pathname.startsWith("/entrar"));
+writeFileSync(sessao, JSON.stringify(await ctx.cookies()), "utf8");
 ok("login");
 
 // Ficha 7 (diário): cria um registro, grava, edita e desfaz.

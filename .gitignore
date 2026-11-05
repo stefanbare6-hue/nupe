@@ -9,6 +9,10 @@ data/
 # Capturas de tela geradas pelos scripts
 capturas/
 
+# Segredos locais e sessão dos scripts
+.env
+scripts/.sessao.json
+
 # Sistema operacional e editor
 .DS_Store
 Thumbs.db

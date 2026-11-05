@@ -22,7 +22,7 @@ import { randomBytes } from "node:crypto";
 import type { DB, Store } from "./db";
 import { createSession, destroySession, hashPassword, isAuthenticated, rateLimiter, verifyPassword } from "./auth";
 import { issueAntibotToken } from "./routes-public";
-import { seedDemo } from "./seed";
+import { limparDemo, seedDemo } from "./seed";
 import { anterior, chaveCampo, chaveLinha, conteudoDe, itensDe, registrarMudancas, restaurar } from "./historico";
 
 const secureCookie = process.env.NODE_ENV === "production" || process.env.NUPE_SECURE_COOKIE === "1";const isHttps = (req: { protocol?: string; headers: Record<string, unknown> }) => {
@@ -447,24 +447,18 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
     await seedDemo(store);
     return { ok: true };
   });
-
   app.post("/api/demo/clear", { preHandler: guard }, async () => {
-    const demoIds = new Set(store.data.collections.filter((c) => c.demo).map((c) => c.id));
-    store.data.entries = store.data.entries.filter((e) => !demoIds.has(e.collectionId));
-    store.data.openResponses = store.data.openResponses.filter((r) => !demoIds.has(r.collectionId));
-    store.data.collections = store.data.collections.filter((c) => !c.demo);
-    store.data.visits = [];
-    store.data.demo = null;
-    store.note("dados fictícios removidos");
-    await store.save();
+    await limparDemo(store);
     return { ok: true };
   });
 }
 
 function entriesFor(store: Store, audience: Audience, collectionId?: string) {
+  // A demonstração também conta nos resultados: é para isso que ela existe.
+  // O painel separa as coletas e o "Remover dados fictícios" apaga tudo junto.
   const ids = new Set(
     store.data.collections
-      .filter((c) => c.audience === audience && !c.demo && (!collectionId || c.id === collectionId))
+      .filter((c) => c.audience === audience && (!collectionId || c.id === collectionId))
       .map((c) => c.id),
   );
   return store.data.entries.filter((e) => ids.has(e.collectionId));
@@ -472,8 +466,7 @@ function entriesFor(store: Store, audience: Audience, collectionId?: string) {
 
 /** Respostas abertas de dados reais (a demonstração fictícia nunca entra nos resultados). */
 function openResponsesFor(store: Store, audience?: Audience) {
-  const reais = new Set(store.data.collections.filter((c) => !c.demo).map((c) => c.id));
-  return store.data.openResponses.filter((r) => reais.has(r.collectionId) && (!audience || r.audience === audience));
+  return store.data.openResponses.filter((r) => !audience || r.audience === audience);
 }
 
 function findCollection(store: Store, id: string) {

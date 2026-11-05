@@ -459,6 +459,7 @@ export function Painel() {
 
   const total = dados.counts.reduce((s, c) => s + c.total, 0);
   const abertas = dados.collections.filter((c) => c.status === "aberta").length;
+  const respostasDemo = dados.collections.filter((c) => c.demo).reduce((s, c) => s + c.responses, 0);
   const temDemo = Boolean(dados.demo) || dados.collections.some((c) => c.demo);
 
   return (
@@ -487,8 +488,8 @@ export function Painel() {
         <div className="aviso" role="note">
           <IconeAlerta size={20} />
           <span>
-            <b>Há dados de demonstração no sistema.</b> Estão marcados como fictícios. Remova antes de usar os números no
-            relatório.
+            <b>Há dados de demonstração no sistema.</b> As {respostasDemo} respostas fictícias e as fichas de exemplo entram
+            nos resultados e no relatório. Remova antes de entregar o trabalho.
           </span>
           <button
             type="button"
@@ -633,6 +634,12 @@ export function Painel() {
                   ? "Todas as fichas obrigatórias estão preenchidas."
                   : `${dados.missing} ${dados.missing === 1 ? "campo" : "campos"} das fichas e matrizes ainda ${dados.missing === 1 ? "aparece" : "aparecem"} como [preencher] no relatório.`}
               </p>
+              {respostasDemo > 0 ? (
+                <p className="legenda" style={{ marginTop: 6 }}>
+                  O relatório inclui {respostasDemo} {respostasDemo === 1 ? "resposta fictícia" : "respostas fictícias"} da
+                  demonstração. Remova os dados fictícios antes de entregar o trabalho.
+                </p>
+              ) : null}
               <ul className="atalhos">
                 <li>
                   <a href="/fichas/1">Ficha 1 e 2 · Levantamento e números</a>
@@ -692,8 +699,9 @@ export function Painel() {
           <section className="painel" aria-labelledby="demo">
             <CabeçalhoSecao id="demo">Demonstração</CabeçalhoSecao>
             <p className="legenda" style={{ marginBottom: 14, fontSize: "var(--fs-small)" }}>
-              Carrega respostas fictícias nos três questionários para conhecer o painel. As fichas permanecem vazias para você
-              preencher com dados reais.
+              Carrega 30 respostas fictícias em cada questionário e preenche as fichas e matrizes com um exemplo completo. Serve
+              para conhecer o painel antes da coleta real; os números entram nos resultados e no relatório enquanto estiverem
+              carregados.
             </p>
             {temDemo ? (
               <button type="button" className="btn largo" disabled={ocupado} onClick={() => void demo("clear")}>

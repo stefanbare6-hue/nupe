@@ -11,6 +11,16 @@ import { SURVEYS, publicoNaFrase } from "./surveys";
 /** Quantos campos faltantes a seção 9 lista antes de resumir o restante. */
 const LIMITE_LISTA_FALTANTES = 60;
 
+/**
+ * Os temas vêm agrupados por público, então o mesmo rótulo aparece uma vez por
+ * questionário. O relatório soma as contagens num item só, do maior para o menor.
+ */
+function temasSomados(grupos: ReportInput["themeGroups"]): Array<{ label: string; count: number }> {
+  const soma = new Map<string, number>();
+  for (const g of grupos) soma.set(g.label, (soma.get(g.label) ?? 0) + g.count);
+  return [...soma].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
+}
+
 export interface InstitutionData {
   fields: Record<string, string>;
   numbers: Array<{ indicator: string; value: string; source: string }>;
@@ -565,7 +575,12 @@ export function buildReport(input: ReportInput): ReportModel {
           ]
         : []),
       ...(input.themeGroups.length
-        ? [{ title: "Respostas abertas por tema (sugestão)", items: input.themeGroups.map((g) => `${g.label}: ${g.count}`) }]
+        ? [
+            {
+              title: "Respostas abertas por tema (sugestão)",
+              items: temasSomados(input.themeGroups).map((g) => `${g.label}: ${g.count}`),
+            },
+          ]
         : []),
     ],
   });

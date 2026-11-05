@@ -6,7 +6,7 @@ import { join, resolve, sep } from "node:path";
 import type { Store } from "./db";
 import { registerPublicRoutes } from "./routes-public";
 import { registerAdminRoutes } from "./routes-admin";
-import { sameOrigin } from "./auth";
+import { hashPassword, sameOrigin } from "./auth";
 
 /**
  * Monta a aplicação sobre um armazenamento já aberto. Separado da inicialização
@@ -50,6 +50,23 @@ export async function buildApp(options: {
   await registerAdminRoutes(app, store, secret);
 
   app.get("/api/health", async () => ({ ok: true }));
+
+  // Só fora de produção, com o segredo do arquivo .env: serve para voltar a
+  // entrar no servidor de desenvolvimento quando a senha for esquecida.
+  app.post<{ Body: { email?: string; password?: string } }>("/api/dev/reset-password", async (req, reply) => {
+    const segredo = process.env.NUPE_DEV_PASSWORD;
+    if (process.env.NODE_ENV === "production" || !segredo) return reply.code(404).send({ error: "Não encontrado." });
+    const senha = String(req.body?.password ?? "");
+    if (senha !== segredo) return reply.code(403).send({ error: "Senha de desenvolvimento incorreta." });
+    if (!store.data.admin) return reply.code(409).send({ error: "A configuração inicial ainda não foi feita." });
+    const email = String(req.body?.email ?? "").trim().toLowerCase();
+    if (email && email !== store.data.admin.email) return reply.code(404).send({ error: "Conta não encontrada." });
+    store.data.admin.passwordHash = await hashPassword(senha);
+    store.data.sessions = [];
+    store.note("senha do acesso redefinida no servidor de desenvolvimento");
+    await store.save();
+    return { ok: true };
+  });
 
   if (options.webDist && existsSync(options.webDist)) {
     // wildcard: false registra só os arquivos de raiz; sem a lista de padrões, os
