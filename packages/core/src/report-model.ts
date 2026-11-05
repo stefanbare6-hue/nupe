@@ -543,7 +543,9 @@ export function buildReport(input: ReportInput): ReportModel {
       },
       {
         text: missing.length
-          ? `${missing.length} campo(s) ainda sem preenchimento são listados abaixo e aparecem como [preencher] no relatório.`
+          ? missing.length === 1
+            ? "1 campo ainda sem preenchimento está listado abaixo e aparece como [preencher] no relatório."
+            : `${missing.length} campos ainda sem preenchimento estão listados abaixo e aparecem como [preencher] no relatório.`
           : "Todas as fichas obrigatórias estão preenchidas.",
         evidence: [{ label: "Fichas 1 a 6 e matrizes", ref: "missing" }],
       },

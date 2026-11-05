@@ -81,7 +81,7 @@ export function BarraTopo({
   return (
     <header className="barra-topo nao-imprime">
       {aberta ? <button type="button" className="barra-fundo" aria-label="Fechar menu" onClick={aoFechar} /> : null}
-      <div className="barra-linha">
+      <div className="barra-topo-linha">
         <span className="tela">
           <Marca size={30} />
           NUPE

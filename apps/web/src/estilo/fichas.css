@@ -92,10 +92,147 @@
 .tabela-ficha td {
   padding: 5px 4px;
 }
+/* Ficha 3: as colunas de texto do fluxo precisam de largura para não cortar
+   a etapa no meio da palavra. A soma cabe no cartão em 1440px. */
+.tabela-fluxos th:nth-child(1),
+.tabela-fluxos td:nth-child(1) {
+  width: 34px;
+  min-width: 34px;
+}
+.tabela-fluxos th:nth-child(2),
+.tabela-fluxos td:nth-child(2) {
+  min-width: 140px;
+}
+.tabela-fluxos th:nth-child(3),
+.tabela-fluxos td:nth-child(3) {
+  min-width: 130px;
+}
+.tabela-fluxos th:nth-child(4),
+.tabela-fluxos td:nth-child(4) {
+  min-width: 120px;
+}
+.tabela-fluxos th:nth-child(5),
+.tabela-fluxos td:nth-child(5) {
+  min-width: 80px;
+}
+.tabela-fluxos th:nth-child(6),
+.tabela-fluxos td:nth-child(6) {
+  min-width: 110px;
+}
+.tabela-fluxos th:nth-child(7),
+.tabela-fluxos td:nth-child(7) {
+  width: 92px;
+  min-width: 92px;
+}
+/* Ficha 5: procedimento, base normativa, responsável e prazo. */
+.tabela-procedimentos th:nth-child(1),
+.tabela-procedimentos td:nth-child(1) {
+  min-width: 190px;
+}
+.tabela-procedimentos th:nth-child(2),
+.tabela-procedimentos td:nth-child(2) {
+  min-width: 200px;
+}
+.tabela-procedimentos th:nth-child(3),
+.tabela-procedimentos td:nth-child(3) {
+  min-width: 180px;
+}
+.tabela-procedimentos th:nth-child(4),
+.tabela-procedimentos td:nth-child(4) {
+  min-width: 110px;
+}
+/* A data usa o calendário do navegador; 132px cabem dd/mm/aaaa e o ícone. */
+.tabela-diario .campo-data {
+  width: 132px;
+  min-width: 0;
+  max-width: 100%;
+  padding-left: 8px;
+  padding-right: 4px;
+}
+/* Matriz GUT: o gargalo e a origem são texto; G, U, T, pontos e prioridade
+   têm largura própria para o selo não invadir as colunas vizinhas. */
+.tabela-gut th:nth-child(1),
+.tabela-gut td:nth-child(1) {
+  min-width: 220px;
+}
+.tabela-gut th:nth-child(2),
+.tabela-gut td:nth-child(2) {
+  min-width: 170px;
+}
+.tabela-gut th:nth-child(3),
+.tabela-gut td:nth-child(3),
+.tabela-gut th:nth-child(4),
+.tabela-gut td:nth-child(4),
+.tabela-gut th:nth-child(5),
+.tabela-gut td:nth-child(5) {
+  width: 62px;
+  min-width: 62px;
+}
+.tabela-gut th:nth-child(6),
+.tabela-gut td:nth-child(6) {
+  width: 78px;
+  min-width: 78px;
+}
+.tabela-gut th:nth-child(7),
+.tabela-gut td:nth-child(7) {
+  width: 96px;
+  min-width: 96px;
+}
+.tabela-gut th:nth-child(8),
+.tabela-gut td:nth-child(8) {
+  width: 96px;
+  min-width: 96px;
+}
+.tabela-gut .estado {
+  padding: 3px 8px;
+  white-space: normal;
+}
+.tabela-gut .input {
+  width: 100%;
+  overflow-wrap: break-word;
+}
+.tabela-gut textarea.input {
+  min-height: 0;
+  height: auto;
+  overflow: hidden;
+  resize: vertical;
+  line-height: 1.35;
+  padding: 6px 8px;
+}
+
+/* Ficha 7: data, observação, fonte e dúvida (sem coluna #). */
+.tabela-diario th {
+  white-space: normal;
+  line-height: 1.25;
+}
+.tabela-diario th:nth-child(1),
+.tabela-diario td:nth-child(1) {
+  min-width: 140px;
+}
+.tabela-diario th:nth-child(2),
+.tabela-diario td:nth-child(2) {
+  min-width: 220px;
+}
+.tabela-diario th:nth-child(3),
+.tabela-diario td:nth-child(3) {
+  min-width: 140px;
+}
+.tabela-diario th:nth-child(4),
+.tabela-diario td:nth-child(4) {
+  min-width: 180px;
+}
+/* A data fica no topo da linha, junto do começo do texto. */
+.tabela-diario td:nth-child(1) {
+  vertical-align: top;
+  padding-top: 12px;
+}
 .tabela-ficha .input {
   min-height: 36px;
   border-color: transparent;
   background: transparent;
+}
+.tabela-gut textarea.input {
+  min-height: 0;
 }
 .tabela-ficha .input:hover {
   border-color: var(--border);
@@ -199,9 +336,16 @@
 }
 .fluxo-cab {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 12px;
   margin-bottom: 12px;
+}
+/* Na linha do bloco, as ações não esticam nem sobem para a altura do rótulo. */
+.fluxo-cab > .acoes-linha {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  margin-top: 0;
+  padding-bottom: 4px;
 }
 .pdca {
   display: grid;
@@ -256,6 +400,16 @@
 }
 .linha-matriz .input {
   font-size: var(--fs-small);
+}
+/* O item cresce com o texto: nada fica cortado no fim da caixa. */
+.linha-matriz textarea.input {
+  min-height: 52px;
+  height: auto;
+  overflow: hidden;
+  resize: vertical;
+  field-sizing: content;
+  line-height: 1.4;
+  padding: 8px 10px;
 }
 .linha-matriz .btn {
   justify-self: start;
@@ -476,6 +630,18 @@
   }
   .fluxo-cab {
     flex-direction: column;
+    align-items: stretch;
+  }
+  /* Ações do bloco no telefone: dois botões lado a lado, na largura da coluna. */
+  .fluxo-cab > .acoes-linha {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding-bottom: 0;
+  }
+  .fluxo-cab > .acoes-linha .btn {
+    width: 100%;
+    text-align: center;
   }
   .form-ajustes .grade-2 {
     grid-template-columns: minmax(0, 1fr);

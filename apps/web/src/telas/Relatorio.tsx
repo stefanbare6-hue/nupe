@@ -104,7 +104,8 @@ export function Relatorio() {
       {faltam ? (
         <details className="pendentes nao-imprime" open={faltam <= 12}>
           <summary>
-            {faltam} campo(s) ainda como [preencher]. O relatório sai com essa marcação, nunca com dado inventado.
+            {faltam} {faltam === 1 ? "campo" : "campos"} ainda como [preencher]. O relatório sai com essa marcação, nunca
+            com dado inventado.
           </summary>
           <ul>
             {model.missing.slice(0, 80).map((m, i) => (
@@ -128,7 +129,9 @@ export function Relatorio() {
           <p className="sub">{model.subtitle}</p>
           <p className="meta">
             Gerado em {dataHora(model.generatedAt)} ·{" "}
-            {model.status === "completo" ? "todas as fichas preenchidas" : `incompleto: ${faltam} campo(s) a preencher`}
+            {model.status === "completo"
+              ? "todas as fichas preenchidas"
+              : `incompleto: ${faltam} ${faltam === 1 ? "campo" : "campos"} a preencher`}
           </p>
         </header>
 

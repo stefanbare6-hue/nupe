@@ -55,7 +55,7 @@ export function renderReportBody(model: ReportModel): string {
   parts.push(`<h1>${esc(model.title)}</h1>`);
   parts.push(`<p class="sub">${esc(model.subtitle)}</p>`);
   parts.push(
-    `<p class="meta">Gerado em ${esc(formatDate(model.generatedAt))} · Status: ${model.status === "completo" ? "completo" : `incompleto (${model.missing.length} campo(s) a preencher)`}</p>`,
+    `<p class="meta">Gerado em ${esc(formatDate(model.generatedAt))} · Status: ${model.status === "completo" ? "completo" : `incompleto (${model.missing.length} ${model.missing.length === 1 ? "campo" : "campos"} a preencher)`}</p>`,
   );
   parts.push(`</header>`);
 

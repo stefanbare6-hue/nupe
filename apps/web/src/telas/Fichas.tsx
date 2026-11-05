@@ -657,16 +657,18 @@ function Ficha3({
                 <label htmlFor={`fluxo-nome-${f.id}`}>Nome do fluxo</label>
                 <CampoTexto rotulo="Nome do fluxo" valor={f.name} aoSalvar={(v) => trocar({ name: v })} />
               </div>
-              <BotaoConfirmavel
-                rotulo={`Remover o fluxo ${f.name || "sem nome"}`}
-                pergunta={`Remover o fluxo “${f.name || "sem nome"}”? As etapas dele saem do relatório.`}
-                acoes={["Remover fluxo", "Manter"]}
-                variante="btn sutil perigo"
-                aoConfirmar={() => aplicar(fluxos.filter((x) => x.id !== f.id))}
-              >
-                Remover fluxo
-              </BotaoConfirmavel>
-              <BotaoDesfazer chave={chaveLinha("flows", f.id)} temCopia={copia(chaveLinha("flows", f.id))} rotulo={`o fluxo ${f.name || "sem nome"}`} />
+              <div className="acoes-linha" role="group" aria-label="Ações do fluxo">
+                <BotaoConfirmavel
+                  rotulo={`Remover o fluxo ${f.name || "sem nome"}`}
+                  pergunta={`Remover o fluxo “${f.name || "sem nome"}”? As etapas dele saem do relatório.`}
+                  acoes={["Remover fluxo", "Manter"]}
+                  variante="btn sutil perigo"
+                  aoConfirmar={() => aplicar(fluxos.filter((x) => x.id !== f.id))}
+                >
+                  Remover fluxo
+                </BotaoConfirmavel>
+                <BotaoDesfazer chave={chaveLinha("flows", f.id)} temCopia={copia(chaveLinha("flows", f.id))} rotulo={`o fluxo ${f.name || "sem nome"}`} />
+              </div>
             </header>
             <div className="campo" style={{ marginBottom: 12 }}>
               <label htmlFor={`fluxo-proc-${f.id}`}>Processo</label>
@@ -674,7 +676,7 @@ function Ficha3({
             </div>
             <p className="tabela-dica">Deslize para o lado para ver as outras colunas.</p>
       <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas.">
-              <table className="tabela-ficha tabela-diario">
+              <table className="tabela-ficha tabela-fluxos">
                 <thead>
                   <tr>
                     <th scope="col" style={{ width: 34 }}>
@@ -799,16 +801,20 @@ function Ficha4({ dados, salvar, copia }: { dados: RecordsView; salvar: Salvar; 
                 aoSalvar={(v) => (avisar(), gravar(sistemas.map((x) => (x.id === s.id ? { ...x, name: v } : x))))}
               />
             </div>
-            <BotaoConfirmavel
-              rotulo={`Remover o sistema ${s.name || "sem nome"}`}
-              pergunta={`Remover o sistema “${s.name || "sem nome"}”?`}
-              acoes={["Remover sistema", "Manter"]}
-              variante="btn sutil perigo"
-              aoConfirmar={() => gravar(sistemas.filter((x) => x.id !== s.id))}
-            >
-              Remover sistema
-            </BotaoConfirmavel>
-            <BotaoDesfazer chave={chaveLinha("systems", s.id)} temCopia={copia(chaveLinha("systems", s.id))} rotulo={`o sistema ${s.name || "sem nome"}`} />
+            {/* As ações ficam na própria linha do bloco, alinhadas à direita, sem
+                disputar espaço com o nome do sistema. */}
+            <div className="acoes-linha" role="group" aria-label="Ações do sistema">
+              <BotaoDesfazer chave={chaveLinha("systems", s.id)} temCopia={copia(chaveLinha("systems", s.id))} rotulo={`o sistema ${s.name || "sem nome"}`} />
+              <BotaoConfirmavel
+                rotulo={`Remover o sistema ${s.name || "sem nome"}`}
+                pergunta={`Remover o sistema “${s.name || "sem nome"}”?`}
+                acoes={["Remover sistema", "Manter"]}
+                variante="btn sutil perigo"
+                aoConfirmar={() => gravar(sistemas.filter((x) => x.id !== s.id))}
+              >
+                Remover sistema
+              </BotaoConfirmavel>
+            </div>
           </header>
           <dl className="campos-ficha dois">
             {SYSTEM_FIELDS.map((f) => (
@@ -885,7 +891,7 @@ function Ficha5({ dados, salvar, copia }: { dados: RecordsView; salvar: Salvar; 
         responsável é preenchido por você.
       </p>
       <p className="tabela-dica">Deslize para o lado para ver as outras colunas.</p>
-      <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas."> <table className="tabela-ficha tabela-fluxos">
+      <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas."> <table className="tabela-ficha tabela-procedimentos">
           <thead>
             <tr>
               {PROCEDURE_COLUMNS.map((c) => (
@@ -1069,7 +1075,7 @@ function Ficha7({ dados, salvar, copia }: { dados: RecordsView; salvar: Salvar; 
       ) : (
         <>
         <p className="tabela-dica">Deslize para o lado para ver as outras colunas.</p>
-      <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas."> <table className="tabela-ficha tabela-sistemas">
+      <div className="tabela-wrap" tabIndex={0} role="group" aria-label="Tabela da ficha. Em telas estreitas, deslize na horizontal para ver as outras colunas."> <table className="tabela-ficha tabela-diario">
             <thead>
               <tr>
                 {DIARY_COLUMNS.map((c) => (
@@ -1087,7 +1093,7 @@ function Ficha7({ dados, salvar, copia }: { dados: RecordsView; salvar: Salvar; 
                 <tr key={r.id}>
                   {DIARY_COLUMNS.map((c) => (
                     <td key={c.key}>
-                      {c.kind === "long" ? (
+                      {c.kind === "long" || c.key === "source" ? (
                         <CampoTexto
                           rotulo={`registro ${i + 1}, ${c.label}`}
                           valor={(r as unknown as Record<string, string>)[c.key] ?? ""}

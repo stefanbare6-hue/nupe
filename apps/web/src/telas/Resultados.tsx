@@ -103,7 +103,8 @@ export function Resultados({ audienciaInicial = "estudantes" }: { audienciaInici
           <>
             {!resultados.dados.summary.showPercent ? (
               <Aviso>
-                <b>Amostra pequena.</b> Com {numero(resultados.dados.summary.total)} resposta(s), o percentual seria enganoso. O
+                <b>Amostra pequena.</b> Com {numero(resultados.dados.summary.total)}{" "}
+                {resultados.dados.summary.total === 1 ? "resposta" : "respostas"}, o percentual seria enganoso. O
                 painel mostra apenas contagens; médias e percentuais aparecem a partir de 5 respostas.
               </Aviso>
             ) : null}
@@ -161,7 +162,7 @@ export function Resultados({ audienciaInicial = "estudantes" }: { audienciaInici
                   )}
                   {semTema > 0 ? (
                     <p className="micro" style={{ marginTop: 12 }}>
-                      {numero(semTema)} resposta(s) sem tema. Abra a pergunta e ajuste o tema quando o assunto existir na lista.
+                      {numero(semTema)} {semTema === 1 ? "resposta sem tema" : "respostas sem tema"}. Abra a pergunta e ajuste o tema quando o assunto existir na lista.
                     </p>
                   ) : null}
                 </section>

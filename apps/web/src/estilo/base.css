@@ -1035,11 +1035,12 @@ textarea.input {
   position: sticky;
   top: 0;
   z-index: 20;
-  height: 64px;
+  height: var(--altura-barra, 64px);
 }
 /* A linha visível é a que fica presa no topo; o cabeçalho é só a moldura em que
-   o fundo escurecido do menu pode ficar atrás da navegação. */
-.barra-linha {
+   o fundo escurecido do menu pode ficar atrás da navegação. Nome próprio para
+   não disputar regra com .barra-linha dos gráficos. */
+.barra-topo-linha {
   position: relative;
   z-index: 2;
   display: flex;
@@ -1130,7 +1131,10 @@ textarea.input {
   .barra-topo {
     height: 58px;
   }
-  .barra-linha {
+  :root {
+    --altura-barra: 58px;
+  }
+  .barra-topo-linha {
     padding: 0 12px 0 16px;
   }
   .app .barra-topo {

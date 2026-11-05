@@ -236,7 +236,7 @@ export function Matrizes() {
           Ordene os gargalos encontrados na ficha 3 e na análise. Alta prioridade a partir de 60 pontos; média entre 30 e 59.
         </p>
         <div className="tabela-wrap">
-          <table className="tabela-ficha">
+          <table className="tabela-ficha tabela-gut">
             <thead>
               <tr>
                 <th scope="col">Gargalo</th>
@@ -286,23 +286,37 @@ export function Matrizes() {
                 return (
                   <tr key={item.id}>
                     <td>
-                      <input
+                      <textarea
                         key={`texto:${item.text}`}
                         className="input"
+                        rows={2}
                         aria-label={`Gargalo da linha ${i + 1}`}
                         defaultValue={item.text}
+                        ref={(el) => {
+                          if (!el) return;
+                          crescerComTexto(el);
+                          requestAnimationFrame(() => crescerComTexto(el));
+                        }}
+                        onInput={(e) => crescerComTexto(e.currentTarget)}
                         onBlur={(e) => {
                           if (e.target.value !== item.text) trocar({ text: e.target.value });
                         }}
                       />
                     </td>
                     <td>
-                      <input
+                      <textarea
                         key={`evidencia:${item.evidence ?? ""}`}
                         className="input"
+                        rows={2}
                         aria-label={`Origem da linha ${i + 1}`}
                         defaultValue={item.evidence ?? ""}
                         placeholder="pergunta, ficha ou diário"
+                        ref={(el) => {
+                          if (!el) return;
+                          crescerComTexto(el);
+                          requestAnimationFrame(() => crescerComTexto(el));
+                        }}
+                        onInput={(e) => crescerComTexto(e.currentTarget)}
                         onBlur={(e) => {
                           if ((e.target.value || undefined) !== item.evidence) trocar({ evidence: e.target.value || undefined });
                         }}
@@ -414,6 +428,12 @@ export function Matrizes() {
   );
 }
 
+/** Abre a caixa de texto na altura do conteúdo: o que está escrito não fica cortado. */
+function crescerComTexto(el: HTMLTextAreaElement) {
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight + 2}px`;
+}
+
 function Lista({
   itens,
   rotulo,
@@ -442,6 +462,13 @@ function Lista({
             aria-label={`${rotulo}, item ${i + 1}`}
             defaultValue={item.text}
             placeholder={PLACEHOLDER}
+            ref={(el) => {
+              // Abre a caixa na altura do texto para o item não aparecer cortado.
+              if (!el) return;
+              crescerComTexto(el);
+              requestAnimationFrame(() => crescerComTexto(el));
+            }}
+            onInput={(e) => crescerComTexto(e.currentTarget)}
             onBlur={(e) => {
               if (e.target.value !== item.text) aoMudar(itens.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)));
             }}

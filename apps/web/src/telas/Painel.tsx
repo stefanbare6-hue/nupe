@@ -390,8 +390,8 @@ export function Coletas() {
                       <span className={classeEstado(c.status)}>{STATUS[c.status]}</span>
                     </header>
                     <p className="legenda" style={{ marginTop: 12, fontSize: "var(--fs-small)" }}>
-                      {c.label.replace(/\s*\(fictício\)/i, "")} · {numero(c.responses)} resposta(s). Para praticar sem usar
-                      dados reais.
+                      {c.label.replace(/\s*\(fictício\)/i, "")} · {numero(c.responses)}{" "}
+                      {c.responses === 1 ? "resposta" : "respostas"}. Para praticar sem usar dados reais.
                     </p>
                   </section>
                 ))}
@@ -631,7 +631,7 @@ export function Painel() {
               <p className="legenda" style={{ marginTop: 6 }}>
                 {dados.missing === 0
                   ? "Todas as fichas obrigatórias estão preenchidas."
-                  : `${dados.missing} campo(s) das fichas e matrizes ainda aparecem como [preencher] no relatório.`}
+                  : `${dados.missing} ${dados.missing === 1 ? "campo" : "campos"} das fichas e matrizes ainda ${dados.missing === 1 ? "aparece" : "aparecem"} como [preencher] no relatório.`}
               </p>
               <ul className="atalhos">
                 <li>

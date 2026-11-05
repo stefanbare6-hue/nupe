@@ -23,7 +23,7 @@ export function PerguntaResultado({ q, showPercent }: { q: QuestionResult; showP
         <p className="micro" id={`r-${q.questionId}-meta`}>
           {q.answered === 0
             ? "sem respostas"
-            : `${numero(q.answered)} ${q.answered === 1 ? "resposta" : "respostas"} de ${numero(q.total)} recebidas`}
+            : `${numero(q.answered)} ${q.answered === 1 ? "resposta" : "respostas"} de ${numero(q.total)} ${q.total === 1 ? "recebida" : "recebidas"}`}
           {showPercent && !q.showPercent && q.answered > 0 ? " · esta pergunta tem amostra pequena, só contagens" : ""}
           {!showPercent ? " · amostra pequena, só contagens" : ""}
         </p>
@@ -82,7 +82,7 @@ function Escala({ q, showPercent }: { q: QuestionResult; showPercent: boolean })
       <div
         className="escala-grafico"
         role="img"
-        aria-label={`Distribuição das notas de 1 a 5: ${dist.map((d) => `nota ${d.value}, ${d.count} resposta(s)`).join("; ")}`}
+        aria-label={`Distribuição das notas de 1 a 5: ${dist.map((d) => `nota ${d.value}, ${d.count} ${d.count === 1 ? "resposta" : "respostas"}`).join("; ")}`}
       >
         <div className="escala-eixo-y" aria-hidden="true">
           <span>{max}</span>
