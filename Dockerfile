@@ -23,8 +23,12 @@ COPY --from=build /app/packages/core/package.json ./packages/core/package.json
 
 # /dados é onde o arquivo JSON vive; em hospedagem com volume, monte ali.
 ENV NUPE_DATA=/dados/nupe.json
-RUN mkdir -p /dados && chown node:node /dados
+RUN mkdir -p /dados && chown node:node /dados \
+  && apt-get update && apt-get install -y --no-install-recommends su-exec \
+  && rm -rf /var/lib/apt/lists/*
 
-USER node
+# O volume montado chega com dono root. O arranque acerta a posse e cai para
+# node antes de subir o servidor, então não fixamos USER aqui.
+COPY --chmod=755 scripts/arranque-docker.sh /app/arranque-docker.sh
 EXPOSE 3333
-CMD ["node", "apps/api/dist/server.js"]
+CMD ["/bin/sh", "/app/arranque-docker.sh"]
