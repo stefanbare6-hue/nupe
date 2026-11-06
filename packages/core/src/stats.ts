@@ -1,4 +1,5 @@
 import type { Audience, Question, Survey } from "./surveys";
+import { chaveOutro, LIMITE_OUTRO } from "./surveys";
 
 export const MIN_SAMPLE_FOR_PERCENT = 5;
 
@@ -97,6 +98,7 @@ export function analyzeQuestion(
     };
     base.answered = values.length;
     base.showPercent = values.length >= MIN_SAMPLE_FOR_PERCENT;
+    base.openTexts = textosLivres(surveyQuestion, answers);
     return base;
   }
 
@@ -112,9 +114,18 @@ export function analyzeQuestion(
   const options = surveyQuestion.options ?? [];
   const counts = new Map<string, number>(options.map((o) => [o.code, 0]));
   let answered = 0;
+  let soEscrito = 0;
   for (const a of answers) {
     const codes = asCodes(a[surveyQuestion.id]).filter((c) => counts.has(c));
-    if (codes.length === 0) continue;
+    if (codes.length === 0) {
+      // Quem só escreveu (não marcou opção) conta como resposta à pergunta, mas
+      // não pode inflar opção nenhuma.
+      if (textoLivre(surveyQuestion, a)) {
+        answered += 1;
+        soEscrito += 1;
+      }
+      continue;
+    }
     answered += 1;
     // Em múltipla, o mesmo respondente não conta duas vezes a mesma opção.
     for (const code of new Set(codes)) counts.set(code, (counts.get(code) ?? 0) + 1);
@@ -127,7 +138,22 @@ export function analyzeQuestion(
     const count = counts.get(o.code) ?? 0;
     return { code: o.code, label: o.label, count, percent: pct(count, answered) };
   });
+  // Só aparece a linha do "outro" quando alguém escreveu, para não sugerir
+  // uma opção que o questionário não oferece.
+  const escritos = textosLivres(surveyQuestion, answers);
+  if (escritos.length > 0) base.options.push({ code: "outro", label: "Outro (texto livre)", count: soEscrito, percent: pct(soEscrito, answered) });
+  base.openTexts = escritos;
   return base;
+}
+
+function textoLivre(q: Question, a: RawAnswers): string {
+  if (!q.outro) return "";
+  const v = a[chaveOutro(q.id)];
+  return typeof v === "string" ? scrubOpenText(v, LIMITE_OUTRO) : "";
+}
+
+function textosLivres(q: Question, answers: RawAnswers[]): string[] {
+  return answers.map((a) => textoLivre(q, a)).filter((t) => t.length > 0);
 }
 
 export function labelFor(question: Question, code: string): string {
@@ -156,29 +182,36 @@ export function validateSubmission(
   const errors: string[] = [];
   for (const q of survey.questions) {
     const v = answers[q.id];
+    const outro = answers[chaveOutro(q.id)];
     const empty =
       v == null ||
       (typeof v === "string" && v.trim() === "") ||
       (Array.isArray(v) && v.length === 0);
 
+    // O texto do "outro" vale como resposta quando a pessoa não marca opção.
+    const escrito = typeof outro === "string" ? outro.trim() : "";
+    if (escrito.length > LIMITE_OUTRO) {
+      errors.push(`Resposta ${q.number} acima do limite de ${LIMITE_OUTRO} caracteres.`);
+    }
+
     if (q.optional) {
       if (q.type === "open" && typeof v === "string" && v.length > limits.maxOpen) {
         errors.push(`Resposta ${q.number} acima do limite de ${limits.maxOpen} caracteres.`);
       }
-      if (!empty && q.type !== "open" && !isValidValue(q, v)) {
+      if (!empty && !escrito && q.type !== "open" && !isValidValue(q, v)) {
         errors.push(`Resposta ${q.number} inválida.`);
       }
       continue;
     }
 
-    if (empty) {
+    if (empty && !escrito) {
       errors.push(`Responda a pergunta ${q.number}.`);
       continue;
     }
     if (q.type === "open" && typeof v === "string" && v.length > limits.maxOpen) {
       errors.push(`Resposta ${q.number} acima do limite de ${limits.maxOpen} caracteres.`);
     }
-    if (q.type !== "open" && !isValidValue(q, v)) {
+    if (!empty && q.type !== "open" && !isValidValue(q, v)) {
       errors.push(`Resposta ${q.number} inválida.`);
     }
   }

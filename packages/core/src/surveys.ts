@@ -25,6 +25,16 @@ export interface Question {
   options?: Option[];
   scale?: { min: 1; max: 5; minLabel: string; maxLabel: string };
   optional?: boolean;
+  /** Todas as perguntas aceitam um texto livre para quem não achar a opção. */
+  outro?: boolean;
+}
+
+/** Campo de digitação que acompanha cada pergunta fechada. */
+export const LIMITE_OUTRO = 600;
+
+/** Chave da resposta escrita que acompanha a opção marcada. */
+export function chaveOutro(questionId: string): string {
+  return `${questionId}__outro`;
 }
 
 export interface Survey {
@@ -73,6 +83,7 @@ export const DOCENTES: Survey = {
   intro: INTRO_DOCENTES,
   questions: [
     q("d1", 1, "single", "Você coordena ou participa de projetos?", {
+      outro: true,
       options: [
         { code: "extensao", label: "Extensão" },
         { code: "pesquisa", label: "Pesquisa" },
@@ -82,6 +93,7 @@ export const DOCENTES: Survey = {
     }),
     q("d2", 2, "multi", "Quais sistemas da UNEB fazem parte do seu trabalho?", {
       hint: "Marque todos os que usa, inclusive para consultar o andamento.",
+      outro: true,
       options: [
         { code: "spgu", label: "SPGU (cadastro e acompanhamento)" },
         { code: "sisproex", label: "SISPROEX (projetos de extensão)" },
@@ -93,8 +105,10 @@ export const DOCENTES: Survey = {
     }),
     q("d3", 3, "scale", "De 1 a 5, quão fácil é usar o SISPROEX?", {
       scale: SCALE("1 – muito difícil", "5 – muito fácil"),
+      outro: true,
     }),
     q("d4", 4, "single", "Em qual etapa o processo trava mais?", {
+      outro: true,
       options: [
         { code: "cadastro_spgu", label: "Cadastro no SPGU" },
         { code: "importacao_sisproex", label: "Importação para o SISPROEX" },
@@ -105,6 +119,7 @@ export const DOCENTES: Survey = {
       ],
     }),
     q("d5", 5, "single", "Você fica sabendo dos prazos dos relatórios com antecedência?", {
+      outro: true,
       options: [
         { code: "sempre", label: "Sempre" },
         { code: "as_vezes", label: "Às vezes" },
@@ -114,8 +129,10 @@ export const DOCENTES: Survey = {
     }),
     q("d6", 6, "scale", "De 1 a 5, o quanto o apoio do NUPE ajuda no seu trabalho?", {
       scale: SCALE("1 – nada", "5 – muito"),
+      outro: true,
     }),
     q("d7", 7, "multi", "O que você espera do NUPE?", {
+      outro: true,
       options: [
         { code: "avisos", label: "Avisos de prazos e editais" },
         { code: "orientacao", label: "Orientação sobre SPGU e SISPROEX" },
@@ -136,6 +153,7 @@ export const ESTUDANTES: Survey = {
   intro: SURVEY_INTRO,
   questions: [
     q("e1", 1, "single", "Qual é o seu curso?", {
+      outro: true,
       options: [
         { code: "administracao", label: "Administração" },
         { code: "letras", label: "Letras" },
@@ -143,6 +161,7 @@ export const ESTUDANTES: Survey = {
       ],
     }),
     q("e2", 2, "multi", "Você já participou de projeto ou monitoria?", {
+      outro: true,
       options: [
         { code: "extensao", label: "Extensão" },
         { code: "pesquisa", label: "Pesquisa" },
@@ -151,6 +170,7 @@ export const ESTUDANTES: Survey = {
       ],
     }),
     q("e3", 3, "single", "Você sabe o que o NUPE faz?", {
+      outro: true,
       options: [
         { code: "sim", label: "Sim" },
         { code: "em_parte", label: "Em parte" },
@@ -158,6 +178,7 @@ export const ESTUDANTES: Survey = {
       ],
     }),
     q("e4", 4, "multi", "Como você fica sabendo de editais e oportunidades?", {
+      outro: true,
       options: [
         { code: "site", label: "Site" },
         { code: "grupos", label: "Grupos de mensagens" },
@@ -168,6 +189,7 @@ export const ESTUDANTES: Survey = {
       ],
     }),
     q("e5", 5, "multi", "O que mais dificulta sua participação?", {
+      outro: true,
       options: [
         { code: "falta_informacao", label: "Falta de informação" },
         { code: "prazos", label: "Prazos" },
@@ -178,8 +200,10 @@ export const ESTUDANTES: Survey = {
     }),
     q("e6", 6, "scale", "De 1 a 5, as informações sobre projetos e editais são claras?", {
       scale: SCALE("1 – nada claras", "5 – muito claras"),
+      outro: true,
     }),
     q("e7", 7, "single", "Você participaria de um canal no WhatsApp com editais e projetos?", {
+      outro: true,
       options: [
         { code: "sim", label: "Sim" },
         { code: "talvez", label: "Talvez" },
@@ -197,6 +221,7 @@ export const EQUIPE: Survey = {
   intro: INTRO_EQUIPE,
   questions: [
     q("q1", 1, "multi", "Quais frentes mais consomem o tempo da equipe?", {
+      outro: true,
       options: [
         { code: "spgu", label: "Acompanhamento de projetos no SPGU" },
         { code: "sisproex", label: "Importação e acompanhamento no SISPROEX" },
@@ -208,7 +233,9 @@ export const EQUIPE: Survey = {
         { code: "rotina", label: "Atendimento e demandas do dia a dia" },
       ],
     }),
-    q("q2", 2, "single", "Onde o trabalho mais trava hoje?", {
+    q("q2", 2, "multi", "Onde o trabalho mais trava hoje?", {
+      hint: "Marque todos os pontos que travam.",
+      outro: true,
       options: [
         { code: "cadastro_spgu", label: "Cadastro e atualização no SPGU" },
         { code: "importacao_sisproex", label: "Importação do projeto para o SISPROEX" },
@@ -221,15 +248,19 @@ export const EQUIPE: Survey = {
     }),
     q("q3", 3, "scale", "De 1 a 5, quão fácil é usar o SISPROEX no dia a dia?", {
       scale: SCALE("1 – muito difícil", "5 – muito fácil"),
+      outro: true,
     }),
     q("q4", 4, "single", "Com que frequência os relatórios e as prestações de contas chegam atrasados?", {
+      outro: true,
       options: [
         { code: "raramente", label: "Raramente" },
         { code: "as_vezes", label: "Às vezes" },
         { code: "quase_sempre", label: "Quase sempre" },
       ],
     }),
-    q("q5", 5, "single", "Qual é a principal causa dos atrasos?", {
+    q("q5", 5, "multi", "Quais são as principais causas dos atrasos?", {
+      hint: "Marque todas as causas que aparecem.",
+      outro: true,
       options: [
         { code: "falta_aviso", label: "Aviso tardio do prazo" },
         { code: "dificuldade_sistema", label: "Dificuldade para usar o sistema" },
@@ -239,6 +270,7 @@ export const EQUIPE: Survey = {
       ],
     }),
     q("q6", 6, "multi", "Quais sistemas fazem parte da rotina do NUPE?", {
+      outro: true,
       options: [
         { code: "spgu", label: "SPGU" },
         { code: "sisproex", label: "SISPROEX" },
@@ -251,6 +283,7 @@ export const EQUIPE: Survey = {
     }),
     q("q7", 7, "scale", "De 1 a 5, quanto dos pedidos que chegam ao NUPE está dentro das atribuições do núcleo?", {
       scale: SCALE("1 – nada", "5 – tudo"),
+      outro: true,
     }),
     q("q8", 8, "open", "O que mais atrapalha o trabalho do NUPE hoje?", { optional: true }),
   ],

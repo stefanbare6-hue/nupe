@@ -30,8 +30,7 @@ export async function buildApp(options: {
     }>;
     volume: string | null;
     montagemDesconhecida: boolean;
-  };
-}): Promise<FastifyInstance> {
+  };}): Promise<FastifyInstance> {
   const { store, secret } = options;
   const app = Fastify({
     logger: process.env.LOG_LEVEL ? { level: process.env.LOG_LEVEL } : false,
@@ -62,7 +61,7 @@ export async function buildApp(options: {
   });
 
   await registerPublicRoutes(app, store, secret);
-  await registerAdminRoutes(app, store, secret);
+  await registerAdminRoutes(app, store, secret, options.storage);
 
   // O "gravavel" diz se o arquivo de dados está num disco que persiste. Sem essa
   // informação, um deploy com volume mal montado parece normal até o primeiro reinício.

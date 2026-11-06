@@ -163,8 +163,26 @@ describe("validação do envio", () => {
   });
 
   it("aceita pular a pergunta aberta opcional da equipe", () => {
-    const base = { q1: ["spgu", "relatorios"], q2: "cadastro_spgu", q3: 2, q4: "as_vezes", q5: "falta_aviso", q6: ["spgu", "sisproex"], q7: 3, q8: "" };
+    const base = { q1: ["spgu", "relatorios"], q2: ["cadastro_spgu"], q3: 2, q4: "as_vezes", q5: ["falta_aviso"], q6: ["spgu", "sisproex"], q7: 3, q8: "" };
     expect(validateSubmission(EQUIPE, base)).toEqual([]);
+  });
+
+  it("aceita escrever no campo livre quando nenhuma opção serve", () => {
+    const soEscrito = { ...valido, e1: "", e1__outro: "Curso de Agronomia" };
+    expect(validateSubmission(ESTUDANTES, soEscrito)).toEqual([]);
+    expect(validateSubmission(ESTUDANTES, { ...valido, e1: "", e1__outro: "x".repeat(700) })).toHaveLength(1);
+  });
+
+  it("conta quem só escreveu e guarda o texto para o relatório", () => {
+    const r = analyzeQuestion(ESTUDANTES.questions[0]!, [{ e1: "letras" }, { e1: "", e1__outro: "Agronomia" }], 2);
+    expect(r.answered).toBe(2);
+    expect(r.openTexts).toEqual(["Agronomia"]);
+    expect(r.options.find((o) => o.code === "outro")?.count).toBe(1);
+  });
+
+  it("a equipe aceita mais de um travamento e mais de uma causa de atraso", () => {
+    expect(EQUIPE.questions.find((q) => q.id === "q2")?.type).toBe("multi");
+    expect(EQUIPE.questions.find((q) => q.id === "q5")?.type).toBe("multi");
   });
 });
 

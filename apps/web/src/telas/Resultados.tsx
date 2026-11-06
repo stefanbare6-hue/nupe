@@ -114,13 +114,19 @@ export function Resultados({ audienciaInicial = "estudantes" }: { audienciaInici
                 {resultados.dados.summary.questions.map((q) => (
                   <section key={q.questionId} className="painel">
                     <PerguntaResultado q={q} showPercent={resultados.dados!.summary.showPercent} />
-                    {q.type === "open" ? (
-                      <RespostasAbertas
-                        respostas={porPergunta.get(q.questionId) ?? []}
-                        temas={temas.dados?.themes ?? []}
-                        aoTrocar={trocarTema}
-                        salvando={salvandoTema}
-                      />
+                    {(porPergunta.get(q.questionId) ?? []).length > 0 ? (
+                      <details className="grupo-aberto" style={{ marginTop: 12 }}>
+                        <summary>
+                          <span>{q.type === "open" ? "Respostas escritas" : "O que escreveram em “Outro”"}</span>
+                          <span className="meta num">{porPergunta.get(q.questionId)!.length}</span>
+                        </summary>
+                        <RespostasAbertas
+                          respostas={porPergunta.get(q.questionId) ?? []}
+                          temas={temas.dados?.themes ?? []}
+                          aoTrocar={trocarTema}
+                          salvando={salvandoTema}
+                        />
+                      </details>
                     ) : null}
                   </section>
                 ))}

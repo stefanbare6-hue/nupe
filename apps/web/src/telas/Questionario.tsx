@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Question } from "@nupe/core";
+import { chaveOutro, LIMITE_OUTRO } from "@nupe/core";
 import { api, ApiError, idDaSessao } from "../lib/http";
 import { IconeCheck, IconePessoa } from "../componentes/Icones";
 import { aplicarTamanho, BarraTopo, BotoesTexto, tamanhoAtual, type Passo } from "../componentes/BarraTopo";
@@ -71,7 +72,11 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
 
   const respondidas = useMemo(() => {
     if (!survey) return 0;
-    return survey.questions.filter((q) => !vazio(valores[q.id], q)).length;
+    return survey.questions.filter((q) => {
+      if (!vazio(valores[q.id], q)) return true;
+      const outro = valores[chaveOutro(q.id)];
+      return typeof outro === "string" && outro.trim() !== "";
+    }).length;
   }, [survey, valores]);
 
   function definir(id: string, v: string | string[] | number | null) {
@@ -101,7 +106,14 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
     const novos: Record<string, string> = {};
     for (const q of survey!.questions) {
       if (q.optional) continue;
-      if (vazio(valores[q.id], q)) novos[q.id] = `Escolha uma resposta para a pergunta ${q.number}.`;
+      const escolhido = !vazio(valores[q.id], q);
+      const outro = valores[chaveOutro(q.id)];
+      const escrito = typeof outro === "string" ? outro.trim() : "";
+      if (escrito.length > LIMITE_OUTRO) {
+        novos[q.id] = `O texto da pergunta ${q.number} passou de ${LIMITE_OUTRO} caracteres.`;
+        continue;
+      }
+      if (!escolhido && !escrito) novos[q.id] = `Escolha uma resposta ou escreva na pergunta ${q.number}.`;
     }
     setErros(novos);
     return Object.keys(novos).length === 0;
@@ -281,8 +293,10 @@ export function QuestionarioPublico({ publicId }: { publicId: string }) {
                 <Pergunta
                   q={q}
                   valor={valores[q.id] ?? null}
+                  outro={typeof valores[chaveOutro(q.id)] === "string" ? (valores[chaveOutro(q.id)] as string) : ""}
                   erro={erros[q.id]}
                   aoMudar={(v) => definir(q.id, v)}
+                  aoEscrever={(t) => definir(chaveOutro(q.id), t)}
                   aoAlternar={(c) => alternarMulti(q, c)}
                 />
               </li>
@@ -439,14 +453,18 @@ function vazio(v: string | string[] | number | null | undefined, q: Question): b
 function Pergunta({
   q,
   valor,
+  outro,
   erro,
   aoMudar,
+  aoEscrever,
   aoAlternar,
 }: {
   q: Question;
   valor: string | string[] | number | null;
+  outro: string;
   erro?: string;
   aoMudar: (v: string | string[] | number | null) => void;
+  aoEscrever: (t: string) => void;
   aoAlternar: (code: string) => void;
 }) {
   const nome = `p${q.number}`;
@@ -468,6 +486,7 @@ function Pergunta({
             </span>
           ) : null}
         </legend>
+        {q.hint ? <p className="micro">{q.hint}</p> : null}
       </header>
 
       {q.type === "single" ? (
@@ -547,6 +566,25 @@ function Pergunta({
           />
           <p className="micro">{(typeof valor === "string" ? valor.length : 0)}/1200</p>
         </>
+      ) : null}
+
+      {q.outro ? (
+        <div className="campo-outro">
+          <label htmlFor={`${nome}-outro`}>
+            Não achou a opção? Escreva aqui
+            <span className="opcional">opcional</span>
+          </label>
+          <textarea
+            id={`${nome}-outro`}
+            className="input"
+            rows={2}
+            maxLength={LIMITE_OUTRO}
+            placeholder="Se a sua resposta não está na lista, escreva com suas palavras."
+            value={outro}
+            onChange={(e) => aoEscrever(e.target.value)}
+          />
+          {outro.length > 0 ? <p className="micro">{outro.length}/{LIMITE_OUTRO}</p> : null}
+        </div>
       ) : null}
 
       {erro ? (

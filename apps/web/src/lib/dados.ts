@@ -27,6 +27,13 @@ export interface DashboardView {
   demo: string | null;
   missing: number;
   log: Array<{ at: string; action: string; detail?: string }>;
+  /** Diagnóstico do disco: null quando o servidor não sabe dizer (ex.: Windows). */
+  armazenamento: { volume: string | null; montagemDesconhecida: boolean } | null;
+}
+
+/** true só quando é certo que o arquivo está fora de um volume persistente. */
+export function discoDescartavel(a: DashboardView["armazenamento"] | undefined): boolean {
+  return Boolean(a && !a.montagemDesconhecida && a.volume === null);
 }
 
 export interface ThemeGroup {

@@ -1,8 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import {
+  LIMITE_OUTRO,
   SUGGESTED_THEMES,
   SURVEYS,
+  chaveOutro,
   isAudience,
+  normalizeScale,
   scrubOpenText,
   suggestThemeIds,
   validateSubmission,
@@ -178,7 +181,7 @@ export async function registerPublicRoutes(app: FastifyInstance, store: Store, s
         let value: string | string[] | number | null = null;
         if (q.type === "open") value = typeof raw === "string" ? scrubOpenText(raw) : null;
         else if (q.type === "multi") value = Array.isArray(raw) ? [...new Set(raw.filter((x) => typeof x === "string"))] : [];
-        else if (q.type === "scale") value = Number(raw);
+        else if (q.type === "scale") value = normalizeScale(raw);
         else value = typeof raw === "string" ? raw : null;
         return { questionId: q.id, value };
       });
@@ -186,9 +189,9 @@ export async function registerPublicRoutes(app: FastifyInstance, store: Store, s
       store.data.entries.push({ id: entryId, collectionId: c.id, submittedAt, answers: cleaned });
 
       for (const a of cleaned) {
-        if (typeof a.value !== "string" || a.value.length === 0) continue;
         const q = survey.questions.find((x) => x.id === a.questionId);
         if (q?.type !== "open") continue;
+        if (typeof a.value !== "string" || a.value.length === 0) continue;
         store.data.openResponses.push({
           id: crypto.randomUUID(),
           entryId,
@@ -197,6 +200,26 @@ export async function registerPublicRoutes(app: FastifyInstance, store: Store, s
           questionId: q.id,
           text: a.value,
           themeIds: suggestThemeIds(a.value, store.data.themes.length ? store.data.themes : SUGGESTED_THEMES),
+          manualThemeId: null,
+          createdAt: submittedAt,
+        });
+      }
+
+      // O texto do "outro" também entra na lista de respostas abertas, ligado à
+      // pergunta de origem, para aparecer no relatório sem virar opção.
+      for (const q of survey.questions) {
+        if (!q.outro) continue;
+        const bruto = answers[chaveOutro(q.id)];
+        const texto = typeof bruto === "string" ? scrubOpenText(bruto, LIMITE_OUTRO) : "";
+        if (!texto) continue;
+        store.data.openResponses.push({
+          id: crypto.randomUUID(),
+          entryId,
+          collectionId: c.id,
+          audience: c.audience,
+          questionId: q.id,
+          text: texto,
+          themeIds: suggestThemeIds(texto, store.data.themes.length ? store.data.themes : SUGGESTED_THEMES),
           manualThemeId: null,
           createdAt: submittedAt,
         });

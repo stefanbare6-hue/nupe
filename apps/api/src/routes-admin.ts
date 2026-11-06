@@ -13,6 +13,7 @@ import {
   effectiveThemeIds,
   getSurvey,
   isAudience,
+  chaveOutro,
   renderReportDocument,
   type Audience,
   type Matrices,
@@ -43,7 +44,12 @@ function publicCollection(c: Store["data"]["collections"][number], responses: nu
 /** Fichas gravadas em bloco: recebem número de versão para não se sobrescreverem. */
 const fichasCompletas = new Set(["institution", "matrices", "flows", "systems", "procedures", "diary", "glossary", "improvement"]);
 
-export async function registerAdminRoutes(app: FastifyInstance, store: Store, secret: string) {
+export async function registerAdminRoutes(
+  app: FastifyInstance,
+  store: Store,
+  secret: string,
+  armazenamento?: { volume: string | null; montagemDesconhecida: boolean },
+) {
   const loginLimit = rateLimiter(8, 10 * 60_000);
 
   const guard = async (req: Parameters<typeof isAuthenticated>[1], reply: any) => {
@@ -118,6 +124,7 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
       demo: store.data.demo,
       missing: buildMissingReportInput(store).length,
       log: store.data.log.slice(-8).reverse(),
+      armazenamento: armazenamento ?? null,
     };
   });
 
@@ -208,7 +215,7 @@ export async function registerAdminRoutes(app: FastifyInstance, store: Store, se
     const aud = req.params.audience;
     if (!isAudience(aud)) return reply.code(400).send({ error: "Público inválido." });
     const entries = entriesFor(store, aud);
-    const summary = analyzeAudience(getSurvey(aud), entries.map((e) => ({ answers: toRaw(e.answers) })));
+    const summary = analyzeAudience(getSurvey(aud), entries.map((e) => ({ answers: toRawComOutro(store, e, aud) })));
     const themes = groupThemes(store, aud);
     const texts = openResponsesFor(store, aud)
       .map((r) => ({ id: r.id, questionId: r.questionId, text: r.text, themeIds: effectiveThemeIds(r), manual: r.manualThemeId != null }));
@@ -521,6 +528,20 @@ function openResponsesFor(store: Store, audience?: Audience) {
 function toRaw(answers: { questionId: string; value: unknown }[]): RawAnswers {
   const out: RawAnswers = {};
   for (const a of answers) out[a.questionId] = a.value as any;
+  return out;
+}
+
+/**
+ * Devolve as respostas com o texto do "outro" anexado, para a pergunta contar
+ * quem só escreveu. A escolha original continua em `answers[questionId]`.
+ */
+function toRawComOutro(store: Store, entry: { id: string; answers: { questionId: string; value: unknown }[] }, audience: Audience): RawAnswers {
+  const out = toRaw(entry.answers);
+  for (const r of openResponsesFor(store, audience)) {
+    if (r.entryId !== entry.id) continue;
+    const q = getSurvey(audience).questions.find((x) => x.id === r.questionId);
+    if (q?.outro) out[chaveOutro(q.id)] = r.text;
+  }
   return out;
 }
 

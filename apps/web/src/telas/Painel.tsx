@@ -14,7 +14,7 @@ import {
   IconeSeta,
 } from "../componentes/Icones";
 import { useDados } from "../lib/useDados";
-import { carregar, type DashboardView } from "../lib/dados";
+import { carregar, discoDescartavel, type DashboardView } from "../lib/dados";
 import { publicoNaFrase, type Collection } from "@nupe/core";
 
 const STATUS: Record<Collection["status"], string> = {
@@ -229,6 +229,16 @@ export function Coletas() {
         <div className="aviso" role="alert">
           <IconeAlerta size={18} />
           <span>{erroAcao}</span>
+        </div>
+      ) : null}
+      {discoDescartavel(dados?.armazenamento) ? (
+        <div className="aviso" role="alert" style={{ background: "var(--warning-bg)", borderColor: "var(--warning-border)", color: "var(--warning)" }}>
+          <IconeAlerta size={18} />
+          <span>
+            <b>O disco desta hospedagem é temporário.</b> O arquivo de dados não está num volume montado, então um novo deploy
+            apaga as coletas e as respostas. Monte um volume na hospedagem e aponte a variável <code>NUPE_DATA</code> para dentro
+            dele antes de divulgar os links.
+          </span>
         </div>
       ) : null}
       {avisoLinks ? (

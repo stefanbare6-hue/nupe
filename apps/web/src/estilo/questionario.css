@@ -148,6 +148,30 @@
 .q-cartao textarea.input {
   min-height: 120px;
 }
+/* Campo livre que acompanha cada pergunta: discreto, sem competir com as opções. */
+.campo-outro {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+.campo-outro > label {
+  display: block;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.campo-outro .opcional {
+  display: inline;
+  margin-left: 6px;
+}
+.campo-outro textarea.input {
+  min-height: 62px;
+  resize: vertical;
+}
+.campo-outro .micro {
+  margin-top: 4px;
+}
 
 /* opções: cartões clicáveis, selecionado em laranja */
 .opcoes {
