@@ -16,6 +16,21 @@ export async function buildApp(options: {
   store: Store;
   secret: string;
   webDist?: string | null;
+  storage?: {
+    dataPath: string;
+    dataConfig: string;
+    restauradoDe: string | null;
+    candidatos: Array<{
+      path: string;
+      existe: boolean;
+      admin: boolean;
+      entradas: number;
+      bytes: number;
+      atualizadoEm: string | null;
+    }>;
+    volume: string | null;
+    montagemDesconhecida: boolean;
+  };
 }): Promise<FastifyInstance> {
   const { store, secret } = options;
   const app = Fastify({
@@ -51,7 +66,21 @@ export async function buildApp(options: {
 
   // O "gravavel" diz se o arquivo de dados está num disco que persiste. Sem essa
   // informação, um deploy com volume mal montado parece normal até o primeiro reinício.
-  app.get("/api/health", async () => ({ ok: true, gravavel: store.gravaNoDisco }));
+  app.get("/api/health", async () => ({
+    ok: true,
+    gravavel: store.gravaNoDisco,
+    dataPath: store.path,
+    admin: Boolean(store.data.admin),
+    ...(options.storage
+      ? {
+          dataConfig: options.storage.dataConfig,
+          restauradoDe: options.storage.restauradoDe,
+          volume: options.storage.volume,
+          montagemDesconhecida: options.storage.montagemDesconhecida,
+          candidatos: options.storage.candidatos,
+        }
+      : {}),
+  }));
 
   // Só fora de produção, com o segredo do arquivo .env: serve para voltar a
   // entrar no servidor de desenvolvimento quando a senha for esquecida.

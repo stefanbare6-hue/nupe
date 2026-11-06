@@ -28,7 +28,7 @@ function publicoDoTitulo(titulo: string): string {
 const CHAMADA: Record<string, string> = {
   docentes: "como o NUPE pode apoiar melhor a rotina de pesquisa e extensão",
   estudantes: "como o NUPE pode chegar mais perto de você",
-  equipe: "como o trabalho interno do NUPE pode funcionar melhor",
+  equipe: "como a rotina do núcleo pode funcionar melhor",
 };
 
 export function QuestionarioPublico({ publicId }: { publicId: string }) {

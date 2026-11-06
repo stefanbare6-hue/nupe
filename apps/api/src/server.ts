@@ -4,10 +4,14 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Store } from "./db";
 import { buildApp } from "./app";
+import { montagemDe, recuperarDados, type ResultadoRecuperacao } from "./recuperacao";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const DATA_PATH = process.env.NUPE_DATA ? resolve(process.env.NUPE_DATA) : join(process.cwd(), "data", "nupe.json");
+const DATA_CONFIG = process.env.NUPE_DATA ? resolve(process.env.NUPE_DATA) : join(process.cwd(), "data", "nupe.json");
+const recuperacao: ResultadoRecuperacao = recuperarDados(DATA_CONFIG);
+const DATA_PATH = recuperacao.path;
+const MONTAGEM = montagemDe(DATA_PATH);
 const SECRET = process.env.NUPE_SECRET || "dev-secret-troque-em-producao";
 const PORT = Number(process.env.PORT || 3333);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -36,7 +40,19 @@ if (SECRET === "dev-secret-troque-em-producao") {
 }
 
 const store = await Store.open(DATA_PATH);
-const app = await buildApp({ store, secret: SECRET, webDist: WEB_DIST });
+const app = await buildApp({
+  store,
+  secret: SECRET,
+  webDist: WEB_DIST,
+  storage: {
+    dataPath: DATA_PATH,
+    dataConfig: DATA_CONFIG,
+    restauradoDe: recuperacao.restauradoDe,
+    candidatos: recuperacao.candidatos,
+    volume: MONTAGEM.volume,
+    montagemDesconhecida: MONTAGEM.desconhecido,
+  },
+});
 
 // Aviso de primeiro acesso: a tela de configuração aparece quando não há administrador.
 if (!store.data.admin) {
@@ -54,7 +70,27 @@ process.on("SIGTERM", shutdown);
 await app.listen({ port: PORT, host: HOST });
 // O log precisa dizer em que porta e em que arquivo o app ficou: é por essas
 // duas linhas que se descobre um domínio apontando para a porta errada.
-app.log.info({ porta: PORT, host: HOST, dataPath: DATA_PATH, gravavel: store.gravaNoDisco }, "NUPE API pronta");
+app.log.info(
+  {
+    porta: PORT,
+    host: HOST,
+    dataPath: DATA_PATH,
+    dataConfig: DATA_CONFIG,
+    gravavel: store.gravaNoDisco,
+    volume: MONTAGEM.volume,
+    restauradoDe: recuperacao.restauradoDe,
+  },
+  "NUPE API pronta",
+);
+if (recuperacao.restauradoDe) {
+  app.log.warn({ de: recuperacao.restauradoDe, para: DATA_PATH }, "Dados recuperados de uma cópia anterior");
+}
+if (MONTAGEM.volume === null && !MONTAGEM.desconhecido) {
+  app.log.warn(
+    { dataPath: DATA_PATH },
+    "O arquivo de dados não está num volume montado: um novo deploy pode apagar tudo. Monte um volume e aponte NUPE_DATA para dentro dele.",
+  );
+}
 
 // A hospedagem pode injetar PORT com um valor diferente do que o domínio
 // público usa. Em vez de depender de as duas pontas baterem à mão, o app

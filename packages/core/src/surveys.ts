@@ -83,9 +83,9 @@ export const DOCENTES: Survey = {
     q("d2", 2, "multi", "Quais sistemas da UNEB fazem parte do seu trabalho?", {
       hint: "Marque todos os que usa, inclusive para consultar o andamento.",
       options: [
-        { code: "spgu", label: "SPGU (cadastro de projetos)" },
-        { code: "sisproex", label: "SISPROEX (extensão)" },
-        { code: "sonic", label: "SONIC (relatórios de pesquisa)" },
+        { code: "spgu", label: "SPGU (cadastro e acompanhamento)" },
+        { code: "sisproex", label: "SISPROEX (projetos de extensão)" },
+        { code: "sonic", label: "SONIC (relatórios e prestação de contas)" },
         { code: "sge", label: "SGE (certificados)" },
         { code: "planilhas", label: "Planilhas ou anotações próprias" },
         { code: "nao_uso", label: "Não uso esses sistemas" },
