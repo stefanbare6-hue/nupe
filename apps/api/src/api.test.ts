@@ -571,7 +571,7 @@ describe("limites de acesso", () => {
       const r = await chamar(lab.base, "POST", `/api/public/surveys/${publicId}/responses`, {
         sessionId,
         proof: (await chamar(lab.base, "POST", "/api/public/surveys/contest", { collectionPublicId: publicId, sessionId })).json.proof,
-        answers: { d1: "ambos", d2: ["site"], d3: 3, d4: "relatorio", d5: "as_vezes", d6: 3, d7: "nao", d8: "Texto de teste." },
+        answers: { d1: "ambos", d2: ["spgu"], d3: 3, d4: "relatorio", d5: "as_vezes", d6: 3, d7: ["avisos"], d8: "Texto de teste." },
       });
       return r.status;
     };

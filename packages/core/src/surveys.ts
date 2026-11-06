@@ -35,11 +35,26 @@ export interface Survey {
   questions: Question[];
 }
 
-export const SURVEY_INTRO =
-  "Olá! Sou estagiário(a) do NUPE (Núcleo de Pesquisa e Extensão) do DCHT XXI, UNEB Campus XXI. " +
-  "Este questionário leva de 3 a 5 minutos e busca entender como melhorar a divulgação e os processos " +
-  "de pesquisa e extensão. As respostas são anônimas e serão usadas apenas no relatório do estágio. " +
+const ABERTURA =
+  "Olá! Sou estagiário(a) do NUPE (Núcleo de Pesquisa e Extensão) do DCHT XXI, UNEB Campus XXI.";
+
+const FECHAMENTO =
+  "As respostas são anônimas, não pedem nome nem e-mail, e serão usadas apenas no relatório do estágio. " +
   "Obrigado(a) por participar!";
+
+export const SURVEY_INTRO =
+  `${ABERTURA} Este questionário leva de 3 a 5 minutos e busca entender como melhorar a divulgação e os processos ` +
+  `de pesquisa e extensão. ${FECHAMENTO}`;
+
+const INTRO_DOCENTES =
+  `${ABERTURA} Este questionário leva de 3 a 5 minutos e faz parte do relatório do meu estágio. ` +
+  `As perguntas são sobre o uso dos sistemas da UNEB no dia a dia da pesquisa e da extensão: ` +
+  `SPGU, SISPROEX, SGE e SONIC. ${FECHAMENTO}`;
+
+const INTRO_EQUIPE =
+  `${ABERTURA} Este questionário leva de 3 a 5 minutos e faz parte do relatório do meu estágio. ` +
+  `As perguntas são sobre a rotina do núcleo, o uso dos sistemas da UNEB (SPGU, SISPROEX, SGE e SONIC) ` +
+  `e as atribuições do NUPE previstas no regimento. ${FECHAMENTO}`;
 
 const SCALE = (minLabel: string, maxLabel: string) => ({ min: 1 as const, max: 5 as const, minLabel, maxLabel });
 
@@ -55,7 +70,7 @@ export const DOCENTES: Survey = {
   audience: "docentes",
   title: "Questionário - Docentes",
   shortTitle: "Docentes",
-  intro: SURVEY_INTRO,
+  intro: INTRO_DOCENTES,
   questions: [
     q("d1", 1, "single", "Você coordena ou participa de projetos?", {
       options: [
@@ -65,23 +80,27 @@ export const DOCENTES: Survey = {
         { code: "nenhum", label: "Nenhum" },
       ],
     }),
-    q("d2", 2, "multi", "Onde você encontra os editais de extensão e pesquisa?", {
+    q("d2", 2, "multi", "Quais sistemas da UNEB fazem parte do seu trabalho?", {
+      hint: "Marque todos os que usa, inclusive para consultar o andamento.",
       options: [
-        { code: "site", label: "Site da UNEB" },
-        { code: "grupos", label: "Grupos de mensagens" },
-        { code: "colegas", label: "Colegas" },
-        { code: "nupe", label: "NUPE" },
-        { code: "nao_encontro", label: "Não encontro" },
+        { code: "spgu", label: "SPGU (cadastro de projetos)" },
+        { code: "sisproex", label: "SISPROEX (extensão)" },
+        { code: "sonic", label: "SONIC (relatórios de pesquisa)" },
+        { code: "sge", label: "SGE (certificados)" },
+        { code: "planilhas", label: "Planilhas ou anotações próprias" },
+        { code: "nao_uso", label: "Não uso esses sistemas" },
       ],
     }),
     q("d3", 3, "scale", "De 1 a 5, quão fácil é usar o SISPROEX?", {
       scale: SCALE("1 – muito difícil", "5 – muito fácil"),
     }),
-    q("d4", 4, "single", "Em qual etapa você sente mais dificuldade?", {
+    q("d4", 4, "single", "Em qual etapa o processo trava mais?", {
       options: [
-        { code: "registro", label: "Registro do projeto" },
-        { code: "relatorio", label: "Relatório" },
-        { code: "prestacao", label: "Prestação de contas" },
+        { code: "cadastro_spgu", label: "Cadastro no SPGU" },
+        { code: "importacao_sisproex", label: "Importação para o SISPROEX" },
+        { code: "editais", label: "Participação em editais" },
+        { code: "relatorio", label: "Relatório e prestação de contas (SISPROEX/SONIC)" },
+        { code: "certificacao_sge", label: "Certificação no SGE" },
         { code: "nenhuma", label: "Nenhuma" },
       ],
     }),
@@ -90,16 +109,20 @@ export const DOCENTES: Survey = {
         { code: "sempre", label: "Sempre" },
         { code: "as_vezes", label: "Às vezes" },
         { code: "nunca", label: "Nunca" },
+        { code: "nao_se_aplica", label: "Não se aplica" },
       ],
     }),
     q("d6", 6, "scale", "De 1 a 5, o quanto o apoio do NUPE ajuda no seu trabalho?", {
       scale: SCALE("1 – nada", "5 – muito"),
     }),
-    q("d7", 7, "single", "Você participaria de um canal no WhatsApp com editais e projetos de extensão?", {
+    q("d7", 7, "multi", "O que você espera do NUPE?", {
       options: [
-        { code: "sim", label: "Sim" },
-        { code: "talvez", label: "Talvez" },
-        { code: "nao", label: "Não" },
+        { code: "avisos", label: "Avisos de prazos e editais" },
+        { code: "orientacao", label: "Orientação sobre SPGU e SISPROEX" },
+        { code: "certificacao", label: "Apoio na certificação de atividades" },
+        { code: "intermediacao", label: "Intermediação com a Pró-Reitoria" },
+        { code: "relatorios", label: "Ajuda com relatórios e prestação de contas" },
+        { code: "nada", label: "Nada além do que já faz" },
       ],
     }),
     q("d8", 8, "open", "O que mais ajudaria você no processo de pesquisa e extensão?", { optional: true }),
@@ -171,33 +194,35 @@ export const EQUIPE: Survey = {
   audience: "equipe",
   title: "Questionário - Equipe do NUPE",
   shortTitle: "Equipe do NUPE",
-  intro: SURVEY_INTRO,
+  intro: INTRO_EQUIPE,
   questions: [
-    q("q1", 1, "multi", "Quais atividades mais consomem o tempo do NUPE?", {
+    q("q1", 1, "multi", "Quais frentes mais consomem o tempo da equipe?", {
       options: [
-        { code: "divulgacao", label: "Divulgação de editais" },
-        { code: "apoio_estudantes", label: "Apoio a estudantes" },
-        { code: "documentos", label: "Documentos" },
-        { code: "relatorios", label: "Relatórios" },
-        { code: "atendimento", label: "Atendimento" },
-        { code: "suporte_ti", label: "Suporte de TI" },
-        { code: "outras", label: "Outras" },
+        { code: "spgu", label: "Acompanhamento de projetos no SPGU" },
+        { code: "sisproex", label: "Importação e acompanhamento no SISPROEX" },
+        { code: "sge", label: "Certificação de atividades no SGE" },
+        { code: "relatorios", label: "Relatórios e prestação de contas" },
+        { code: "monitoria", label: "Acompanhamento da monitoria" },
+        { code: "jornada", label: "Jornada de Pesquisa e Extensão" },
+        { code: "eventos", label: "Novembro Negro e outros eventos" },
+        { code: "rotina", label: "Atendimento e demandas do dia a dia" },
       ],
     }),
-    q("q2", 2, "single", "Em qual etapa do fluxo há mais retrabalho?", {
+    q("q2", 2, "single", "Onde o trabalho mais trava hoje?", {
       options: [
-        { code: "selecao", label: "Seleção" },
-        { code: "registro", label: "Registro" },
-        { code: "pagamento", label: "Pagamento de bolsa" },
-        { code: "relatorio", label: "Relatório" },
-        { code: "outra", label: "Outra" },
+        { code: "cadastro_spgu", label: "Cadastro e atualização no SPGU" },
+        { code: "importacao_sisproex", label: "Importação do projeto para o SISPROEX" },
+        { code: "editais", label: "Acompanhamento de editais e recursos" },
+        { code: "certificados_sge", label: "Certificação de atividades no SGE" },
+        { code: "relatorios", label: "Relatórios e prestação de contas" },
+        { code: "monitoria", label: "Acompanhamento da monitoria" },
+        { code: "nenhum", label: "Não vejo travamento" },
       ],
-      optional: true,
     }),
     q("q3", 3, "scale", "De 1 a 5, quão fácil é usar o SISPROEX no dia a dia?", {
       scale: SCALE("1 – muito difícil", "5 – muito fácil"),
     }),
-    q("q4", 4, "single", "Com que frequência os relatórios chegam atrasados?", {
+    q("q4", 4, "single", "Com que frequência os relatórios e as prestações de contas chegam atrasados?", {
       options: [
         { code: "raramente", label: "Raramente" },
         { code: "as_vezes", label: "Às vezes" },
@@ -206,27 +231,28 @@ export const EQUIPE: Survey = {
     }),
     q("q5", 5, "single", "Qual é a principal causa dos atrasos?", {
       options: [
-        { code: "falta_aviso", label: "Falta de aviso" },
-        { code: "esquecimento", label: "Esquecimento" },
-        { code: "dificuldade_sistema", label: "Dificuldade no sistema" },
-        { code: "falta_documentos", label: "Falta de documentos" },
-        { code: "outra", label: "Outra" },
+        { code: "falta_aviso", label: "Aviso tardio do prazo" },
+        { code: "dificuldade_sistema", label: "Dificuldade para usar o sistema" },
+        { code: "falta_documentos", label: "Documentos ou comprovantes incompletos" },
+        { code: "falta_tempo", label: "Falta de tempo do responsável" },
+        { code: "nao_sei", label: "Não sei dizer" },
       ],
     }),
-    q("q6", 6, "multi", "Quais canais o NUPE usa hoje para divulgar?", {
+    q("q6", 6, "multi", "Quais sistemas fazem parte da rotina do NUPE?", {
       options: [
-        { code: "site", label: "Site" },
-        { code: "grupos", label: "Grupos de mensagens" },
-        { code: "murais", label: "Murais" },
-        { code: "email", label: "E-mail" },
-        { code: "reunioes", label: "Reuniões" },
-        { code: "outros", label: "Outros" },
+        { code: "spgu", label: "SPGU" },
+        { code: "sisproex", label: "SISPROEX" },
+        { code: "sge", label: "SGE" },
+        { code: "sonic", label: "SONIC" },
+        { code: "monitoria", label: "Sistema de monitoria" },
+        { code: "planilhas", label: "Planilhas e documentos próprios" },
+        { code: "nenhum", label: "Nenhum" },
       ],
     }),
-    q("q7", 7, "scale", "De 1 a 5, a divulgação alcança estudantes e comunidade?", {
-      scale: SCALE("1 – nada", "5 – totalmente"),
+    q("q7", 7, "scale", "De 1 a 5, quanto dos pedidos que chegam ao NUPE está dentro das atribuições do núcleo?", {
+      scale: SCALE("1 – nada", "5 – tudo"),
     }),
-    q("q8", 8, "open", "Que mudança melhoraria o trabalho do setor?", { optional: true }),
+    q("q8", 8, "open", "O que mais atrapalha o trabalho do NUPE hoje?", { optional: true }),
   ],
 };
 

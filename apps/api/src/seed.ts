@@ -46,6 +46,8 @@ const OPEN_TEXTS: Record<Audience, string[]> = {
     "Avisos curtos no colegiado de curso funcionariam bem aqui.",
     "Saber antes quem aprova o relatório dentro da PROEX.",
     "Uma página com o passo a passo de cada etapa do registro.",
+    "Não sei onde acompanhar o andamento do projeto depois do cadastro.",
+    "Um aviso quando o projeto é importado para o SISPROEX ajudaria.",
   ],
   estudantes: [
     "Divulgar nas salas e nos grupos dos colegas de cada curso.",
@@ -74,6 +76,9 @@ const OPEN_TEXTS: Record<Audience, string[]> = {
     "Um manual curto do SISPROEX para os bolsistas novos.",
     "Revisar o fluxo de pagamento, que concentra os atrasos.",
     "Um registro próprio das dúvidas mais frequentes.",
+    "Os pedidos que chegam fogem do que o regimento prevê.",
+    "Falta integração entre SPGU, SISPROEX e SONIC.",
+    "O acompanhamento dos projetos depende de planilhas paralelas.",
   ],
 };
 
@@ -94,12 +99,12 @@ export async function seedDemo(store: Store): Promise<void> {
   const plans: Record<Audience, Record<string, number[] | "scale">> = {
     docentes: {
       d1: [0.34, 0.22, 0.3, 0.14],
-      d2: [0.5, 0.55, 0.45, 0.25, 0.18],
+      d2: [0.55, 0.6, 0.35, 0.3, 0.25, 0.08],
       d3: [0.18, 0.24, 0.3, 0.18, 0.1],
-      d4: [0.28, 0.4, 0.22, 0.1],
-      d5: [0.22, 0.5, 0.28],
+      d4: [0.28, 0.34, 0.2, 0.22, 0.1, 0.12],
+      d5: [0.22, 0.5, 0.2, 0.08],
       d6: [0.06, 0.14, 0.28, 0.34, 0.18],
-      d7: [0.58, 0.26, 0.16],
+      d7: [0.6, 0.5, 0.35, 0.3, 0.25, 0.1],
     },
     estudantes: {
       e1: [0.36, 0.28, 0.36],
@@ -111,12 +116,12 @@ export async function seedDemo(store: Store): Promise<void> {
       e7: [0.62, 0.26, 0.12],
     },
     equipe: {
-      q1: [0.5, 0.45, 0.6, 0.55, 0.3, 0.2, 0.1],
-      q2: [0.12, 0.3, 0.22, 0.3, 0.06],
+      q1: [0.55, 0.55, 0.4, 0.5, 0.3, 0.25, 0.2, 0.45],
+      q2: [0.22, 0.28, 0.16, 0.2, 0.24, 0.14, 0.08],
       q3: [0.2, 0.28, 0.3, 0.16, 0.06],
       q4: [0.2, 0.44, 0.36],
       q5: [0.36, 0.18, 0.26, 0.16, 0.04],
-      q6: [0.3, 0.55, 0.4, 0.6, 0.5, 0.1],
+      q6: [0.6, 0.65, 0.35, 0.25, 0.3, 0.45, 0.05],
       q7: [0.16, 0.24, 0.34, 0.2, 0.06],
     },
   };

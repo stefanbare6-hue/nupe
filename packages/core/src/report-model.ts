@@ -428,7 +428,7 @@ export function buildReport(input: ReportInput): ReportModel {
   sections.push({
     id: "sistemas",
     title: "3.2 Fichas de sistemas",
-    paras: [{ text: "Registro do SISPROEX, do sistema de iniciação científica e de outros sistemas usados no setor.", evidence: [{ label: "Ficha 4", ref: "ficha4" }] }],
+    paras: [{ text: "Registro do SPGU, do SISPROEX, do SGE, do SONIC e de outros sistemas usados no setor.", evidence: [{ label: "Ficha 4", ref: "ficha4" }] }],
     table: { head: ["Sistema", "Campo", "Anotação"], rows: systemsRows },
   });
 

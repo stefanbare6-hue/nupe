@@ -162,15 +162,17 @@ describe("validação do envio", () => {
     expect(validateSubmission(ESTUDANTES, { ...valido, e8: "a".repeat(1300) })).toHaveLength(1);
   });
 
-  it("aceita pular a pergunta opcional da equipe", () => {
-    const base = { q1: ["documentos"], q3: 2, q4: "as_vezes", q5: "outra", q6: ["site"], q7: 3 };
+  it("aceita pular a pergunta aberta opcional da equipe", () => {
+    const base = { q1: ["spgu", "relatorios"], q2: "cadastro_spgu", q3: 2, q4: "as_vezes", q5: "falta_aviso", q6: ["spgu", "sisproex"], q7: 3, q8: "" };
     expect(validateSubmission(EQUIPE, base)).toEqual([]);
   });
 });
 
 describe("resumo por público", () => {
   it("gera uma linha por pergunta do questionário", () => {
-    const r = analyzeAudience(DOCENTES, [{ answers: { d1: "ambos", d2: ["nupe"], d3: 5, d4: "relatorio", d5: "sempre", d6: 4, d7: "sim" } }]);
+    const r = analyzeAudience(DOCENTES, [
+      { answers: { d1: "ambos", d2: ["spgu", "sisproex"], d3: 5, d4: "relatorio", d5: "sempre", d6: 4, d7: ["avisos", "orientacao"] } },
+    ]);
     expect(r.questions).toHaveLength(8);
     expect(r.total).toBe(1);
     expect(r.showPercent).toBe(false);
